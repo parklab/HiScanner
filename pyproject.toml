@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "copy-scanner"
+version = "0.0.1a2"
+description = "Single-Cell Allelic copy Number scanNER for high-resolution copy number variant calling in single-cell whole-genome sequencing."
+authors = ["Yifan Zhao"]
+license = "MIT License"
+readme = "README.md"
+keywords = ["genomics", "CNV", "CNA", "single cell"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Development Status :: 3 - Alpha"
+]
+packages = [{include = "scanner"}]
+include = ["scanner/cli_tools/**/*"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+scanner-segment = "scanner.cli:main"
+
