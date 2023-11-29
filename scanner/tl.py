@@ -48,7 +48,7 @@ def segment(json_file_path, chroms=range(1,23)):
     return
 
 
-def infer_copynumber(json_file_path):
+def infer_copy_number(json_file_path):
     """
     Infers copy number from the given JSON file.
 
