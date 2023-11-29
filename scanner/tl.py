@@ -12,7 +12,7 @@ def segment(json_file_path, chroms=range(1,23)):
     singlecell = args.get('singlecell').split(',')
     stem = args.get('stem')
     LAMBDA = args.get('LAMBDA')
-    assert os.system('f{bicseq} -h') == 0
+    assert os.system('scanner-segment -h') == 0
 
     print('Reshaping data for bicseq segmentation')
     # reshape the data for bicseq segmentation
@@ -30,7 +30,7 @@ def segment(json_file_path, chroms=range(1,23)):
     for c in singlecell:
         for chrom in chroms:
             input_file = f'{stem}/bicseq_{chrom}'
-            cmd = f'{bicseq} -i {input_file} -l {LAMBDA} -o {input_file}_seg'
+            cmd = f'scanner-segment -i {input_file} -l {LAMBDA} -o {input_file}_seg'
             os.system(cmd)
         seg_all = []
         for chrom in chroms:
@@ -48,9 +48,16 @@ def segment(json_file_path, chroms=range(1,23)):
     return
 
 
+def infer_copynumber(json_file_path):
+    """
+    Infers copy number from the given JSON file.
 
-# Define a worker function to process each row
-def infer_copynumber(json_file_path, MAX_WGD=1):
+    Args:
+        json_file_path (str): The path to the JSON file.
+
+    Returns:
+        None
+    """
     with open(json_file_path, 'r') as file:
         args = json.load(file)
     stem = args.get('stem')
@@ -68,16 +75,3 @@ def infer_copynumber(json_file_path, MAX_WGD=1):
 
     return
 
-def plot_whole_genome_track(json_file_path, cells=[]):
-    with open(json_file_path, 'r') as file:
-        args = json.load(file)
-    stem = args.get('stem')
-    singlecell = args.get('singlecell').split(',')
-    if len(cells) > 0:
-        singlecell = cells
-    WGD = args.get('MAX_WGD')
-    for cell in singlecell:
-        fig,ax = draw_whole_genome(f'{stem}/{cell}.long.wgd{WGD}.txt')
-        ax[0].set_title(f'{cell}')
-        fig.savefig(f'{stem}/{cell}.wgd{WGD}.png',
-                    dpi=100)

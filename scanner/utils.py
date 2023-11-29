@@ -2,26 +2,22 @@
 import os
 from joblib import Parallel, delayed
 from tqdm import tqdm
-import argparse
 from scipy.signal import find_peaks
 from scipy.stats import ks_2samp as KS 
-import heapq
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.mixture import GaussianMixture
-from collections import Counter
-import math
 import itertools
-from scipy.stats import norm, binom_test, beta
-
-import pandas as pd
-import numpy as np
-import os
-from tqdm import tqdm
+from scipy.stats import norm, binom_test
 import json
-import joblib
+import scipy.stats as stats
+from scipy.stats import combine_pvalues
+from scipy.special import logsumexp
 import contextlib
+from collections import Counter
+import joblib
+import math
 
 def pairsum(target):
     '''
@@ -34,75 +30,69 @@ def pairsum(target):
     res = list(set(res))
     return res, len(res)
 
+
 def get_lnvar(x, x_bar):
+    """
+    Calculate the natural logarithm of the variance of a given array.
+
+    Parameters:
+    x (numpy.ndarray): Input array.
+    x_bar (float): Mean value of the input array.
+
+    Returns:
+    float: Natural logarithm of the variance.
+
+    """
     n = x.shape[0]
     lnvar = np.log(np.sum((x - x_bar)**2)/n)
     return lnvar
 
 def get_var(x, x_bar):
+    """
+    Calculate the variance of a given array.
+
+    Parameters:
+    x (numpy.ndarray): The input array.
+    x_bar (float): The mean of the input array.
+
+    Returns:
+    float: The variance of the input array.
+    """
     n = x.shape[0]
     var = np.sum((x - x_bar)**2)/n
     return var
 
+
 def get_bic_gauss(lnvar, n_bp, n):
-    
+    """
+    Calculate the Bayesian Information Criterion (BIC) for a Gaussian model.
+
+    Parameters:
+    - lnvar (float): The natural logarithm of the variance.
+    - n_bp (int): The number of basis points.
+    - n (int): The total number of data points.
+
+    Returns:
+    - bic (float): The BIC value.
+    """
     return lnvar + n_bp/n * np.log(n)
 
-def draw_whole_genome(path):
-    plt.rcParams['axes.xmargin'] = 0
-    # read calls
-    print(path)
-    df = pd.read_csv(path,sep='\t')
-    bins = df[['CHROM', 'START', 'END']].copy(deep=True)
-    df.reset_index(inplace=True)
-    df.drop(columns=['index'], inplace=True)
-    scale_factor = df['gamma'].values[0]
-
-    fig,ax=plt.subplots(2, figsize=(8, 3),sharex=True, dpi=200)
-
-    # plot dotted lines for chromosomes
-    chrlines = [0]*len(bins)
-    for i in range(1, len(bins)):
-        if bins.iloc[i]['CHROM'] != bins.iloc[i-1]['CHROM']:
-            chrlines[i] = 1
-    # get index
-    chrlines = [i for i, x in enumerate(chrlines) if x == 1]
-    # plot rectangles for every other chromosome
-    for index in range(len(chrlines)):
-        if index % 2 == 0:
-            if index+1 >= len(chrlines):
-                break
-            ax[0].axvspan(chrlines[index], chrlines[index+1], facecolor='grey', alpha=0.1)
-            ax[1].axvspan(chrlines[index], chrlines[index+1], facecolor='grey', alpha=0.1)
-
-    # plot data and calls
-    ax[0].scatter(df.index.values, scale_factor*df['RDR'].values,s=1,color='darkgrey')
-    ax[0].plot(df.index.values, df['CN_total'].values,color='black',lw=.5,alpha=1)
-    ax[1].scatter(df.index.values, df['pBAF'].values,s=1,color='black',alpha=.1)
-
-
-    ax[1].set_ylim(-0.05,1.05)
-    ax[0].set_ylim(0,10)
-    ax[0].set_yticks([0,2,4,6,8,10])
-    ax[1].set_ylabel('BAF')
-    ax[0].set_ylabel('Copy Number')    
-    plt.tight_layout()
-
-    # set x axis margins to 0
-    ax[0].set_xlim(0, len(df))
-    ax[1].set_xlim(0, len(df))
-
-
-    # remove x axis ticks
-    ax[0].tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-    ax[1].tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
-
-    return fig,ax
 
 def estimate_vaf(a,b,shift=2):
     '''
-    1) KS test. If not signigicant, either homozygous or inconclusive (depending on mean baf)
-    2) if KS test significant, find peak. If highest peak is 0, then find second highest peak.
+    Estimate the Variant Allele Frequency (VAF) based on the given allele counts.
+
+    Parameters:
+    a (float): The count of variant alleles.
+    b (float): The count of reference alleles.
+    shift (int, optional): The number of positions to shift the variant allele count. Defaults to 2.
+
+    Returns:
+    float: The estimated VAF.
+
+    Algorithm:
+    1) Perform a KS test. If the test is not significant, the result can be either homozygous or inconclusive, depending on the mean BAF (Background Allele Frequency).
+    2) If the KS test is significant, find the peak. If the highest peak is 0, then find the second highest peak.
     '''
     vaf = a/(b+a+1e-10)
     mvaf = [min(i,1-i) for i in vaf]
@@ -140,12 +130,6 @@ def get_second_peak(peaks, heights, grid):
     return grid[peaks[heights.argmax()]]
 
 
-
-
-
-import scipy.stats as stats
-from scipy.stats import combine_pvalues
-from scipy.special import logsumexp
 def infer_ploidy(cell_data,seg_all3,gamma_pool,var_rdr,var_vaf,LAMBDA=1):
     '''
     requires cell_data to have both VAF and VAF_ESTIMATE (VAF_ESTIMATE is estimated mirrored VAF)

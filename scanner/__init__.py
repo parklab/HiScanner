@@ -1,8 +1,13 @@
-from importlib.metadata import version, PackageNotFoundError
+from .version import __version__
+from . import pp, tl, pl
 
-try:
-    __version__ = version("scanner")
-except PackageNotFoundError:
-    # package is not installed
-    __version__ = "unknown"
-
+print(
+    f"""
+    **************************************************************************
+    * Welcome to scanner (v{__version__})!                                         *
+    * Making the invisible visible - one cell at a time.                     *
+    * For help and documentation, visit https://github.com/parklab/scanner   *
+    * Happy scanning!                                                        *
+    **************************************************************************
+    """
+)
