@@ -361,7 +361,6 @@ def postprocess(seg_path,data_path,MAX_WGD=1):
     # identify allelic balanced clusters
     AB_best, var_rdr, var_vaf = find_AB_cluster(cell_data, theta)
     gamma_pool = [2 * t * AB_best.shape[0] / AB_best.RDR.sum() for t in theta]
-    bic = compute_bic(cell_data,k,vaf_weight=1,rdr_weight=1)
     
     assert not math.isnan(var_rdr)
     assert not math.isnan(var_vaf)
@@ -412,3 +411,15 @@ def tqdm_joblib(tqdm_object):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
+
+from io import StringIO
+
+def read_csv_ignore_double_hash(file_path, sep='\t'):
+    buffer = StringIO()
+    with open(file_path, 'r') as file:
+        for line in file:
+            if not line.startswith('##'):
+                buffer.write(line)
+    buffer.seek(0)
+    return pd.read_csv(buffer, sep=sep)
+

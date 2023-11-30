@@ -13,6 +13,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 packages = [{include = "scanner"}]
+include = ["scripts/mbicseq-norm/*.pl"]
+
 
 [tool.poetry.dependencies]
 python = ">=3.8"
@@ -31,8 +33,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 scanner-segment = "scanner.cli:main"
+scanner-init = "scanner.create_config:main"
 
 [project.urls]
 "Homepage" = "https://github.com/parklab/scanner"
 "Bug Tracker" = "https://github.com/parklab/scanner/issues"
-

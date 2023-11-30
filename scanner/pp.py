@@ -5,6 +5,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import json
 import contextlib
+import subprocess
 from .utils import *
 
 eps = 1e-10
@@ -22,7 +23,10 @@ def call_bcftools_query(cell: str, vcf: str, out_fn: str):
         None
     '''
     print(f'Querying {cell}')
-    cmd = f'bcftools query {vcf} -s {cell} -f "%CHROM\\t%POS\\t%REF\\t%ALT{0}[\\t%AD{0}\\t%AD{1}]\n" > {out_fn}'
+    cmd = f'bcftools query {vcf} -s {cell} -f' + \
+            ' "%CHROM\\t%POS\\t%REF\\t%ALT{0}[\\t%AD{0}\\t%AD{1}]\n" ' + \
+            f'> {out_fn}'
+    print("Running " + cmd)
     os.system(cmd)
 
 def baf_preprocess(cell: str, fn: str, phase_path: str, bin_path: str, out_fn: str, chroms: list = range(1, 23), overwrite: bool = False):
@@ -55,7 +59,8 @@ def baf_preprocess(cell: str, fn: str, phase_path: str, bin_path: str, out_fn: s
         # filter out non-phased snps
         df = df[df['UNIQUE_POS'].isin(phase_df['UNIQUE_POS'].values)]
         df = df[(df[4] != '.') & (df[5] != '.')]
-        df[['A', 'B', 'B_copy']] = df[[4, 5, 5]].astype(int)
+        df[['A', 'B']] = df[[4, 5]].astype(int)
+        df['B_copy'] = df['B'].values.copy()
         # reverse A and B if the snp is phased as 1|0
         reverse_pos = phase_df[phase_df['phasedgt'] == '1|0']['UNIQUE_POS'].values
         df.loc[df['UNIQUE_POS'].isin(reverse_pos), ['A', 'B']] = df.loc[df['UNIQUE_POS'].isin(reverse_pos), ['B_copy', 'A']].values
@@ -79,14 +84,21 @@ def baf_preprocess(cell: str, fn: str, phase_path: str, bin_path: str, out_fn: s
         exp.extend(b['expected'])
         grid[i] = b[['start', 'end']].values
 
-    df_aux = pd.concat([df[(df['CHROM'] == chrom) & (df['POS'].between(start, end))] for chrom, g in grid.items() for start, end in g])
-    df_aux = df_aux.groupby(['CHROM', 'START', 'END']).agg({'A': 'sum', 'B': 'sum', 'POS': 'count'}).reset_index()
-    df_aux['TOTAL'] = df_aux['A'] + df_aux['B']
-    df_aux['pBAF'] = df_aux['B'] / (eps + df_aux['TOTAL'])
-    df_aux['MAJOR'] = df_aux[['A', 'B']].max(axis=1)
-    df_aux['MINOR'] = df_aux[['A', 'B']].min(axis=1)
-    df_aux['BAF'] = df_aux['MINOR'] / df_aux['TOTAL']
-    df_aux['RDR'], df_aux['OBS'], df_aux['EXP'] = rdr, obs, exp
+    # aggregate into bins, annotate BAF
+    df_aux = []
+    for chrom, g in grid.items():
+        for i in range(len(g)):
+            start, end = g[i]
+            selected = df[(df['CHROM']==chrom) & (df['POS']>=start) & (df['POS']<=end)]
+            df_aux.append([chrom, start, end, selected.A.sum(), selected.B.sum(), selected.shape[0]])
+    df_aux = pd.DataFrame(df_aux)
+    df_aux.columns = ['CHROM','START','END','A','B','N']
+    df_aux.loc[:,'TOTAL'] = df_aux['A'].values+ df_aux['B'].values
+    df_aux.loc[:, 'pBAF'] = df_aux['B'] / (eps + df_aux['TOTAL'])
+    df_aux.loc[:, 'MAJOR'] = df_aux[['A', 'B']].max(axis=1)
+    df_aux.loc[:, 'MINOR'] = df_aux[['A', 'B']].min(axis=1)
+    df_aux.loc[:, 'BAF'] = df_aux['MINOR'] / df_aux['TOTAL']
+    df_aux.loc[:, 'RDR'], df_aux['OBS'], df_aux['EXP'] = rdr, obs, exp
     print(f'Saving preprocessed data to {out_fn}.txt')
     df_aux.to_csv(f'{out_fn}.txt', sep='\t', index=None)
     
@@ -112,7 +124,7 @@ def preprocess(json_file_path, overwrite=False):
     germline = args.get('germline')
     gatk_vcf = args.get('gatk_vcf')
     stem = args.get('stem')
-    jobs = args.get('j', 1)  # Providing a default value if 'j' is not in the JSON
+    jobs = int(args.get('j', 1))  # Providing a default value if 'j' is not in the JSON
     singlecell = args.get('singlecell', '').split(',')
 
     # Check paths in JSON file
@@ -133,12 +145,15 @@ def preprocess(json_file_path, overwrite=False):
     if not skip_germline:
         os.system(f'bcftools view -h {gatk_vcf} > {stem}/header.txt')
         colnames = ['CHROM', 'POS', 'REF', 'ALT']
-        cellnames = pd.read_csv(f'{stem}/header.txt', sep='\t').columns[9:].tolist()
-        cmd = f'bcftools query {gatk_vcf} -s {germline} -f "%CHROM\\t%POS\\t%REF\\t%ALT{0}[\\t%AD{0}\\t%AD{1}]\n" > {stem}/germline.gatk.txt'
+        cmd = f'bcftools query {gatk_vcf} -s {germline} -f '\
+              + '"%CHROM\\t%POS\\t%REF\\t%ALT{0}[\\t%AD{0}\\t%AD{1}]\n"' \
+              + f'> {stem}/germline.gatk.txt'
+        print("Running " + cmd)
         os.system(cmd)
         print(f'Germline snps saved to {stem}/germline.gatk.txt')
         germline_df = pd.read_csv(f'{stem}/germline.gatk.txt', sep='\t', header=None)
         germline_df = germline_df[(germline_df[4] != '.') & (germline_df[5] != '.')]
+        germline_df[[4, 5]] = germline_df[[4, 5]].astype(int)
         germline_df[6] = germline_df[[4, 5]].min(axis=1) / (germline_df[[4, 5]].sum(axis=1) + eps)
         germline_df['UNIQUE_POS'] = germline_df[0].astype(str) + '_' + germline_df[1].astype(str)
         germline_df = germline_df[germline_df[6] > 0.1]
@@ -164,3 +179,6 @@ def preprocess(json_file_path, overwrite=False):
     print('Start preprocessing BAF')
     with tqdm_joblib(tqdm(desc='Cells processed', total=len(cellnames))) as progress_bar:
         Parallel(n_jobs=jobs)(delayed(baf_preprocess)(cell, f'{stem}/{cell}.gatk.snp.txt', f'{stem}/phased.pos', f'{bin_path}/{cell}/', f'{stem}/{cell}.data', range(1, 23), overwrite) for cell in cellnames if os.path.exists(f'{bin_path}/{cell}/'))
+
+def run_rdr_norm():
+    subprocess.run(["perl", "scripts/mbicseq-norm/BICseq2-norm.pl"])
