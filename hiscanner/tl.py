@@ -11,8 +11,8 @@ def segment(json_file_path, chroms=range(1,23)):
     bicseq = args.get('bicseq_path')
     singlecell = args.get('singlecell').split(',')
     stem = args.get('stem')
-    LAMBDA = args.get('LAMBDA')
-    assert os.system('scanner-segment -h') == 0
+    RDR_LAMBDA = args.get('LAMBDA')
+    assert os.system('scanner-segment -h > /dev/null 2>&1') == 0
 
     print('Reshaping data for bicseq segmentation')
     # reshape the data for bicseq segmentation
@@ -24,27 +24,34 @@ def segment(json_file_path, chroms=range(1,23)):
     for chrom, chrom_df in cell_df.groupby('CHROM'):
         chrom_df = chrom_df.iloc[:,1:]
         chrom_df.index = range(chrom_df.shape[0])
-        chrom_df.to_csv(f'{stem}/bicseq_{chrom}',sep='\t',index=None)
+        chrom_df.to_csv(f'{stem}/bicseq_rdr_{chrom}',sep='\t',index=None)
+
 
     print('Running bicseq segmentation')
     for c in singlecell:
         for chrom in chroms:
-            input_file = f'{stem}/bicseq_{chrom}'
-            cmd = f'scanner-segment -i {input_file} -l {LAMBDA} -o {input_file}_seg'
+            input_file = f'{stem}/bicseq_rdr_{chrom}'
+            cmd = f'scanner-segment -i {input_file} -l {RDR_LAMBDA} -o {input_file}_seg'
+            print(cmd)
             os.system(cmd)
-        seg_all = []
-        for chrom in chroms:
-            seg = pd.read_csv(f'{stem}/bicseq_{chrom}_seg',sep='\t')
-            seg['chrom']=f'{chrom}'
-            seg = seg[['chrom','start','end']]
-            seg_all.append(seg)
-        seg_all = pd.concat(seg_all)
-        seg_all.to_csv(f'{stem}/seg.tsv',sep='\t',index=None)
-        print(f'Segmentation complete. Segments saved to {stem}/seg.tsv')
-        print('Total number of segments: ', seg_all.shape[0])
-        print('Deleting intermediate files...')
-        # delete the intermediate files
-        os.system(f'rm {stem}/bicseq*')
+
+    seg_all_rdr = []
+    for chrom in chroms:
+
+        seg_rdr = pd.read_csv(f'{stem}/bicseq_rdr_{chrom}_seg', sep='\t')
+        seg_rdr['chrom'] = f'{chrom}'
+        seg_rdr = seg_rdr[['chrom', 'start', 'end']]
+        seg_all_rdr.append(seg_rdr)
+
+    seg_all_rdr = pd.concat(seg_all_rdr)
+
+    seg_all_rdr.to_csv(f'{stem}/rdr_seg.tsv', sep='\t', index=None)
+
+    print(f'Segmentation complete. Segments saved to {stem}/rdr_seg.tsv')
+    print('Total number of RDR segments:', seg_all_rdr.shape[0])
+    print('Deleting intermediate files...')
+    # delete the intermediate files
+    os.system(f'rm {stem}/bicseq*')
     return
 
 
@@ -64,7 +71,7 @@ def infer_copy_number(json_file_path):
     MAX_WGD = args.get('MAX_WGD')
     singlecell = args.get('singlecell').split(',')
     for cell in singlecell:
-        seg_path = f'{stem}/seg.tsv'
+        seg_path = f'{stem}/rdr_seg.tsv'
         data_path = f'{stem}/{cell}.data.txt'
     print('Processing ', stem)
     seg_all, seg_all_merged, cell_data = postprocess(seg_path, data_path, MAX_WGD=1)
