@@ -53,6 +53,31 @@ hiscanner-segment -i {input_file} -l {LAMBDA} -o {output_file}
 ```
 For more details, please refer to our [documentation](https://github.com/parklab/hiscanner/tree/main/docs).
 
+## Required input
+### 1) JSON 
+HiScanner requires a json file as input. The json file should contain the following fields:
+- `bam`: path to the bam file
+- `gatk_vcf`: path to the vcf file
+- `output_dir`: path to the output directory
+- `sample_name`: name of the sample
+- `ref_genome`: path to the reference genome
+
+"bin_path": "/Users/yifan/dev/scanner_tutorial/tests/data/bins",
+    "phase_file": "/Users/yifan/dev/scanner_tutorial/tests/data/hsnps/5823_phased_hsnps.vcf",
+    "germline": "5823-tempmusc-1b1_20170221-WGS",
+    "gatk_vcf": "/Users/yifan/dev/scanner_tutorial/tests/data/hsnps/5823_gatk.vcf",
+    "stem": "/Users/yifan/dev/scanner_tutorial/tests/data/output/",
+    "j": 20,
+    "singlecell":"5823PFC-B",
+    "MAX_WGD": 1,
+    "LAMBDA":200
+
+
+### 2) BAM
+The BAM file should be indexed and sorted.
+### 3) VCF
+
+
 ## Operating System
 HiScanner was tested in the following operating systems:
 - macOS Ventura 13.5.2
