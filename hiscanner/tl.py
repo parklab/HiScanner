@@ -12,7 +12,7 @@ def segment(json_file_path, chroms=range(1,23)):
     singlecell = args.get('singlecell').split(',')
     stem = args.get('stem')
     RDR_LAMBDA = args.get('LAMBDA')
-    assert os.system('scanner-segment -h > /dev/null 2>&1') == 0
+    assert os.system('hiscanner-segment -h > /dev/null 2>&1') == 0
 
     print('Reshaping data for bicseq segmentation')
     # reshape the data for bicseq segmentation

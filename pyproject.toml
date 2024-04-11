@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hiscanner"
-version = "0.1a"
+version = "0.2a"
 description = "High-resolution copy number variant calling in single-cell whole-genome sequencing."
 authors = ["Yifan Zhao"]
 license = "MIT License"
