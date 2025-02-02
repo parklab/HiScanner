@@ -1,3 +1,35 @@
+# Python cache files
+__pycache__/
+*.py[cod]
 
+# Original version
+archive_hiscanner_v1/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+venv/
+*_env/
+
+# Duplicate files at root (since they're in the hiscanner package)
+/cli.py
+/config.py
+
+# System files
 .DS_Store
-tests
+.claudesync/
