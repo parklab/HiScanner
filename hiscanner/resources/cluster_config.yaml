@@ -1,0 +1,11 @@
+
+__default__:
+  account: "default"
+  partition: "short"
+  time: "0-12:00"
+  nodes: 1
+  ntasks: 8
+  mem: "16G"
+  job-name: "{rule}"
+  output: "cluster_logs/{rule}-%j.out"
+  error: "cluster_logs/{rule}-%j.err"

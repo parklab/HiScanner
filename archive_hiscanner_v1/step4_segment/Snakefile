@@ -1,0 +1,97 @@
+import pandas as pd
+import os
+
+# Load the sample information from the metadata file
+configfile: "config.yaml"
+samples = pd.read_csv(config["metadata_path"], sep="\t")
+outdir = config["outdir"]
+sample_ids = samples["bamID"].tolist()
+chrom_list = config["chrom_list"]
+
+rule all:
+    input:
+        expand(f"{outdir}/readpos/{{sample}}/{{chrom}}.readpos.seq", sample=sample_ids, chrom=chrom_list),
+        expand(f"{outdir}/bins/{{sample}}/{{chrom}}.bin", sample=sample_ids, chrom=chrom_list),
+        expand(f"{outdir}/segs/{{sample}}/lambda{{lambda_value}}.cnv", sample=sample_ids, lambda_value=config["lambda_range"])
+
+rule create_config_files:
+    output:
+        cfg_files=expand(f"{outdir}/cfg/{{sample}}.cfg", sample=sample_ids),
+        segcfg_files=expand(f"{outdir}/segcfg/{{sample}}.seg.cfg", sample=sample_ids)
+    run:
+        samples = pd.read_csv(config["metadata_path"], sep="\t")
+        for bamID, bam in samples[["bamID", "bam"]].values:
+            fasta_folder = config["fasta_folder"]
+            mappability_folder_stem = config["mappability_folder_stem"]
+            chrom_list = config["chrom_list"]
+            
+            folders = ['cfg', 'bins', 'segs', 'temp', 'segcfg', 'readpos']
+            for f in folders:
+                os.makedirs(f"{outdir}/{f}", exist_ok=True)
+            
+            # Create directory for bins/{sample}
+            os.makedirs(f"{outdir}/bins/{bamID}", exist_ok=True)
+            
+            # Create directory for temp
+            os.makedirs(f"{outdir}/temp", exist_ok=True)
+
+            # Create cfg file
+            fname = f'{outdir}/cfg/{bamID}.cfg'
+            l = []
+            for chrom in chrom_list:
+                row = [
+                    chrom,
+                    f"{fasta_folder}/{chrom}.fasta",
+                    f"{mappability_folder_stem}chr{chrom}.txt",
+                    f"{outdir}/readpos/{bamID}/{chrom}.readpos.seq",
+                    f"{outdir}/bins/{bamID}/{chrom}.bin"
+                ]
+                l.append(row)
+            df = pd.DataFrame(l, columns=['chrom_name', 'fa_file', 'mappability', 'readPosFile', 'bin_file_normalized'])
+            df.to_csv(fname, index=None, sep='\t')
+
+            # Create seg.cfg file
+            fname = f"{outdir}/segcfg/{bamID}.seg.cfg"
+            l = []
+            for chrom in chrom_list:
+                row = [chrom, f"{outdir}/bins/{bamID}/{chrom}.bin"]
+                l.append(row)
+            df = pd.DataFrame(l, columns=['chromName', 'binFileNorm'])
+            df.to_csv(fname, index=None, sep='\t')
+
+rule get_read_pos:
+    input:
+        bam=lambda wildcards: samples.set_index("bamID").loc[wildcards.sample, "bam"]
+    output:
+        readpos=f"{outdir}/readpos/{{sample}}/{{chrom}}.readpos.seq"
+    shell:
+        "samtools view -q 30 -F 1284 {input.bam} {wildcards.chrom} | perl -ane 'print $F[3], \"\n\";' > {output.readpos}"
+
+rule run_bicseq_norm:
+    input:
+        config=f"{outdir}/cfg/{{sample}}.cfg",
+        readpos=lambda wildcards: expand(f"{outdir}/readpos/{{sample}}/{{chrom}}.readpos.seq", sample=[wildcards.sample], chrom=chrom_list)
+    output:
+        bins=[f"{outdir}/bins/{{sample}}/{chrom}.bin" for chrom in chrom_list],
+        temp=f"{outdir}/temp/{{sample}}.temp"
+    params:
+        binsize=config["binsize"],
+        bicseq_norm=config["bicseq_norm"]
+    shell:
+        """
+        {params.bicseq_norm} -b={params.binsize} --gc_bin -p=0.0001 {input.config} {output.temp} || touch {output.temp}.failed
+        """
+
+rule run_segmentation:
+    input:
+        segcfg=f"{outdir}/segcfg/{{sample}}.seg.cfg",
+        bins=lambda wildcards: expand(f"{outdir}/bins/{{sample}}/{{chrom}}.bin", sample=[wildcards.sample], chrom=chrom_list),
+    output:
+        cnv=[f"{outdir}/segs/{{sample}}/lambda{value}.cnv" for value in config["lambda_range"]]
+    params:
+        bicseq_seg=config["bicseq_seg"]
+    shell:
+        "for L in {config[lambda_range]}; do \
+            mkdir -p {outdir}/segs/{wildcards.sample}; \
+            {params.bicseq_seg} --lambda=$L --bootstrap --detail {input.segcfg} {outdir}/segs/{wildcards.sample}/lambda${{L}}.cnv || touch {outdir}/segs/{wildcards.sample}/lambda${{L}}.cnv; \
+         done"

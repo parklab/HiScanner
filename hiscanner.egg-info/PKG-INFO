@@ -1,3 +1,52 @@
+Metadata-Version: 2.1
+Name: hiscanner
+Version: 0.2.0
+Summary: Single-cell Copy Number Variation Analysis Pipeline
+Author-email: Yifan Zhao <yifnzhzo@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2023 Yifan Zhao
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.20.0
+Requires-Dist: pandas>=1.3.0
+Requires-Dist: scipy>=1.7.0
+Requires-Dist: scikit-learn>=1.0.0
+Requires-Dist: hmmlearn>=0.2.7
+Requires-Dist: pysam>=0.16.0
+Requires-Dist: matplotlib>=3.4.0
+Requires-Dist: seaborn>=0.11.0
+Requires-Dist: snakemake>=7.0.0
+Requires-Dist: pyyaml>=5.4.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: colorlog>=6.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov>=2.0; extra == "dev"
+Requires-Dist: black>=22.0; extra == "dev"
+Requires-Dist: flake8>=3.9; extra == "dev"
+Requires-Dist: mypy>=0.910; extra == "dev"
+Requires-Dist: isort>=5.9; extra == "dev"
+
 # HiScanner
 
 A comprehensive pipeline for analyzing copy number variations (CNVs) in single-cell sequencing data.
