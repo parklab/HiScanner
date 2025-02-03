@@ -1,3 +1,7 @@
 include LICENSE
 include README.md
+include hiscanner/resources/default_config.yaml
+include hiscanner/resources/cluster.yaml
+include hiscanner/resources/cluster_config.yaml
+include hiscanner/resources/Snakefile
 recursive-include hiscanner/resources *

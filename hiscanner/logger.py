@@ -11,7 +11,7 @@ class CustomFormatter(colorlog.ColoredFormatter):
             "%(log_color)s%(levelname)-8s%(reset)s %(message)s",
             log_colors={
                 'DEBUG':    'cyan',
-                'INFO':     'green',
+                'INFO':     'black',
                 'WARNING': 'yellow',
                 'ERROR':   'red',
                 'CRITICAL': 'red,bg_white',

@@ -37,22 +37,70 @@ def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
               type=click.Path(exists=True), 
               callback=validate_config_file,
               help='Path to configuration file')
-@click.option('--verbose', 
+@click.option('--debug', 
               is_flag=True, 
-              help='Enable verbose output')
-def cli(config: Optional[Path], verbose: bool):
+              help='Enable debug output')
+def cli(config: Optional[Path], debug: bool):
     """HiScanner: Single-cell Copy Number Variation Analysis Pipeline"""
     # Setup logging first thing
-    log_level = 'DEBUG' if verbose else 'INFO'
+    log_level = 'DEBUG' if debug else 'INFO'
     setup_logging(log_level=log_level)
     
     if config:
         try:
-            config_obj.update_from_file(config)
+            # Use the global config instance
+            globals()['config'].update_from_file(config)
         except ConfigError as e:
             logger.error(f"Configuration error: {e}")
             sys.exit(1)
 
+@cli.command()
+@click.option('--step', 
+              type=click.Choice(['snp', 'phase', 'ado', 'segment', 'cnv', 'all']), 
+              default='all',
+              help='Pipeline step to run')
+@click.option('--use-cluster',
+              is_flag=True,
+              default=False,
+              help='Run pipeline on a cluster using SLURM')
+def run(step: str, use_cluster: bool):
+    """Run the HiScanner pipeline."""
+    try:
+        # Check if configuration has been loaded
+        if not config.config:  # Access the internal config dictionary
+            # If no config has been loaded, try to load from default location
+            if Path('config.yaml').exists():
+                config.update_from_file('config.yaml')
+            else:
+                raise ConfigError("No configuration file found. Please provide a config file using --config option")
+        
+        # Add cluster mode to config
+        config.config['use_cluster'] = use_cluster
+        
+        logger.debug(f"Loaded configuration: {config.config}")
+        
+        steps = {
+            'snp': run_snp_calling,
+            'phase': run_phasing,
+            'ado': run_ado_analysis,
+            'segment': run_segmentation,
+            'cnv': run_cnv_calling
+        }
+        
+        if step == 'all':
+            for step_name, step_func in steps.items():
+                logger.info(f"Running {step_name} step...")
+                step_func(config.config)  # Pass the config dictionary
+        else:
+            logger.info(f"Running {step} step...")
+            steps[step](config.config)  # Pass the config dictionary
+            
+        logger.info("✓ Pipeline completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error running pipeline: {e}")
+        sys.exit(1)
+        
 @cli.command()
 @click.argument('config_path', 
                 type=click.Path(exists=True),
@@ -80,7 +128,7 @@ def validate(config_path: Optional[str]):
         
         # Validate SCAN2 outputs
         from .pipeline.snp_calling import validate_scan2_output
-        scan2_dir = Path(config['scan2_output'])
+        scan2_dir = Path(config.config['scan2_output'])
         validate_scan2_output(scan2_dir)
         logger.info("✓ SCAN2 outputs validated successfully")
         
@@ -121,38 +169,8 @@ def init(output: Optional[str]):
         logger.error(f"Error initializing project: {e}")
         sys.exit(1)
 
-@cli.command()
-@click.option('--step', 
-              type=click.Choice(['snp', 'phase', 'ado', 'segment', 'cnv', 'all']), 
-              default='all',
-              help='Pipeline step to run')
-def run(step: str):
-    """Run the HiScanner pipeline."""
-    try:
-        steps = {
-            'snp': run_snp_calling,
-            'phase': run_phasing,
-            'ado': run_ado_analysis,
-            'segment': run_segmentation,
-            'cnv': run_cnv_calling
-        }
-        
-        if step == 'all':
-            for step_name, step_func in steps.items():
-                logger.info(f"Running {step_name} step...")
-                step_func(config)
-        else:
-            logger.info(f"Running {step} step...")
-            steps[step](config)
-            
-        logger.info("✓ Pipeline completed successfully")
-        
-    except Exception as e:
-        logger.error(f"Error running pipeline: {e}")
-        sys.exit(1)
-
 def main():
-    """CLI entry point"""
+    """Entry point for the CLI."""
     try:
         cli()
     except Exception as e:

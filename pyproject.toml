@@ -19,7 +19,6 @@ dependencies = [
     "pysam>=0.16.0",
     "matplotlib>=3.4.0",
     "seaborn>=0.11.0",
-    "snakemake>=7.0.0",
     "pyyaml>=5.4.0",
     "click>=8.0.0",
     "colorlog>=6.0.0",
@@ -35,6 +34,12 @@ dev = [
     "isort>=5.9",
 ]
 
+[project.urls]
+Homepage = "https://github.com/parklab/hiscanner"
+Documentation = "https://github.com/parklab/hiscanner/README.md"
+Repository = "https://github.com/parklab/hiscanner.git"
+Changelog = "https://github.com/parklab/hiscanner/CHANGELOG.md"
+
 [project.scripts]
 hiscanner = "hiscanner.cli:main"
 
@@ -43,3 +48,36 @@ packages = ["hiscanner"]
 
 [tool.setuptools.package-data]
 hiscanner = ["resources/*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "hiscanner.__version__"}
+
+# External tool requirements - these can't be installed via pip
+# but are required for the package to function
+[tool.hiscanner.external-dependencies]
+r-packages = [
+    "mgcv>=1.8"
+]
+system-requirements = [
+    "R>=4.0",
+    "samtools>=1.9",
+    "bcftools>=1.9",
+    "tabix",
+    "py-bgzip"
+]
+
+[tool.hiscanner.conda-dependencies]
+channels = [
+    "conda-forge",
+    "bioconda",
+    "defaults"
+]
+dependencies = [
+    "r-base>=4.0",
+    "r-mgcv>=1.8",
+    "samtools>=1.9",
+    "bcftools>=1.9",
+    "tabix",
+    "py-bgzip",
+    "graphviz"
+]

@@ -40,8 +40,17 @@ chrom_list:
 lambda_range: [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 
 # Pipeline specific parameters
-max_wgd: 1               # Maximum whole genome duplication level
+max_wgd: 2               # Maximum whole genome duplication level
 batch_size: 5            # Number of cells to process in parallel
 depth_filter: 0          # Minimum read depth filter
 ado_threshold: 0.2       # Allelic dropout threshold
 threads: 4               # Number of parallel threads to use
+ado_plot_baf_distribution: false  # Set to false to disable BAF distribution plots
+
+# ADO analysis options
+aggregate_every_k_snp: false  # Whether to aggregate every k SNPs for ADO analysis
+k: 1                    # Number of SNPs to aggregate when aggregate_every_k_snp is true
+
+# Debug and performance options
+keep_raw_files: false    # Whether to keep intermediate raw files (default: false)
+rerun: false            # Force rerun of existing results (default: false)

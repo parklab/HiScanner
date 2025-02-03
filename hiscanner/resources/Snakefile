@@ -1,0 +1,124 @@
+import pandas as pd
+import os
+from pathlib import Path
+
+# Load configuration
+configfile: "config.yaml"
+samples = pd.read_csv(config["metadata_path"], sep="\t")
+outdir = Path(config["outdir"])
+sample_ids = samples["bamID"].tolist()
+chrom_list = config["chrom_list"]
+
+# Final output files
+rule all:
+    input:
+        expand(str(outdir / "readpos/{sample}/{chrom}.readpos.seq"), 
+               sample=sample_ids, chrom=chrom_list),
+        expand(str(outdir / "bins/{sample}/{chrom}.bin"), 
+               sample=sample_ids, chrom=chrom_list),
+        expand(str(outdir / "segs/{sample}/lambda{lambda_value}.cnv"), 
+               sample=sample_ids, lambda_value=config["lambda_range"])
+
+# Create configuration files
+rule create_config_files:
+    output:
+        cfg_files=expand(str(outdir / "cfg/{sample}.cfg"), sample=sample_ids),
+        segcfg_files=expand(str(outdir / "segcfg/{sample}.seg.cfg"), sample=sample_ids)
+    run:
+        for bamID, bam in samples[["bamID", "bam"]].values:
+            # Create cfg file
+            cfg_data = []
+            for chrom in chrom_list:
+                cfg_data.append([
+                    chrom,
+                    f"{config['fasta_folder']}/{chrom}.fasta",
+                    f"{config['mappability_folder_stem']}chr{chrom}.txt",
+                    str(outdir / f"readpos/{bamID}/{chrom}.readpos.seq"),
+                    str(outdir / f"bins/{bamID}/{chrom}.bin")
+                ])
+            
+            cfg_df = pd.DataFrame(
+                cfg_data, 
+                columns=['chrom_name', 'fa_file', 'mappability', 
+                        'readPosFile', 'bin_file_normalized']
+            )
+            cfg_df.to_csv(outdir / f"cfg/{bamID}.cfg", 
+                         index=None, sep='\t')
+            
+            # Create seg.cfg file
+            segcfg_data = [
+                [chrom, str(outdir / f"bins/{bamID}/{chrom}.bin")]
+                for chrom in chrom_list
+            ]
+            
+            segcfg_df = pd.DataFrame(
+                segcfg_data,
+                columns=['chromName', 'binFileNorm']
+            )
+            segcfg_df.to_csv(outdir / f"segcfg/{bamID}.seg.cfg", 
+                            index=None, sep='\t')
+
+# Extract read positions
+rule get_read_pos:
+    input:
+        bam=lambda wildcards: samples.set_index("bamID").loc[wildcards.sample, "bam"]
+    output:
+        readpos=str(outdir / "readpos/{sample}/{chrom}.readpos.seq")
+    shell:
+        """
+        mkdir -p $(dirname {output.readpos})
+        samtools view -q 30 -F 1284 {input.bam} {wildcards.chrom} | \
+            perl -ane 'print $F[3], "\\n";' > {output.readpos}
+        """
+
+# Run BICseq normalization
+rule run_bicseq_norm:
+    input:
+        config=str(outdir / "cfg/{sample}.cfg"),
+        readpos=lambda wildcards: expand(
+            str(outdir / "readpos/{sample}/{chrom}.readpos.seq"),
+            sample=[wildcards.sample], 
+            chrom=chrom_list
+        )
+    output:
+        bins=expand(
+            str(outdir / "bins/{{sample}}/{chrom}.bin"),
+            chrom=chrom_list
+        ),
+        temp=str(outdir / "temp/{sample}.temp")
+    params:
+        binsize=config["binsize"],
+        bicseq_norm=config["bicseq_norm"]
+    shell:
+        """
+        {params.bicseq_norm} \
+            -b={params.binsize} \
+            --gc_bin \
+            -p=0.0001 \
+            {input.config} \
+            {output.temp}
+        """
+
+# Run segmentation
+rule run_segmentation:
+    input:
+        segcfg=str(outdir / "segcfg/{sample}.seg.cfg"),
+        bins=lambda wildcards: expand(
+            str(outdir / "bins/{sample}/{chrom}.bin"),
+            sample=[wildcards.sample],
+            chrom=chrom_list
+        )
+    output:
+        cnv=str(outdir / "segs/{sample}/lambda{lambda_value}.cnv")
+    params:
+        bicseq_seg=config["bicseq_seg"]
+    shell:
+        """
+        mkdir -p $(dirname {output.cnv})
+        {params.bicseq_seg} \
+            --lambda={wildcards.lambda_value} \
+            --bootstrap \
+            --detail \
+            {input.segcfg} \
+            {output.cnv}
+        """

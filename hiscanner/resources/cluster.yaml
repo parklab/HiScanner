@@ -1,0 +1,25 @@
+__default__:
+  account: "park"
+  partition: "park,short"
+  time: "12:00:00"  # HH:MM:SS format
+  nodes: 1
+  ntasks: 8
+  mem: "16G"
+  job-name: "hiscanner_{rule}"
+  output: "cluster_logs/{rule}-%j.out"
+  error: "cluster_logs/{rule}-%j.err"
+
+get_read_pos:
+  time: "04:00:00"  # HH:MM:SS format
+  mem: "4G"
+  ntasks: 1
+
+run_bicseq_norm:
+  time: "12:00:00"  # HH:MM:SS format
+  mem: "16G"
+  ntasks: 4
+
+run_segmentation:
+  time: "1:00:00"  # HH:MM:SS format
+  mem: "1G"
+  ntasks: 1

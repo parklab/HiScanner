@@ -1,22 +1,47 @@
-# HiScanner
+# HiScanner (HIgh-resolution Single-Cell Allelic copy Number callER)
+[![PyPI version](https://badge.fury.io/py/hiscanner.svg)](https://badge.fury.io/py/hiscanner)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive pipeline for analyzing copy number variations (CNVs) in single-cell sequencing data.
+HiScanner is a python package for high-resolution single-cell copy number analysis.
+
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+    - [Environment Setup](#environment-setup)
+- [Pipeline Overview](#pipeline-overview)
+- [Running the Pipeline](#running-the-pipeline)
+    - [Step 1: SNP Calling (Prerequisites)](#step-1-snp-calling-prerequisites)
+    - [Steps 2-5: HiScanner Analysis](#steps-2-5-hiscanner-analysis)
+- [Output Structure](#output-structure)
+- [Required External Files](#required-external-files)
+- [Troubleshooting](#troubleshooting)
+- [Citation](#citation)
+
 
 ## Prerequisites
+HiScanner requires [`bcftools`](https://samtools.github.io/bcftools/bcftools.html), which must be included in `PATH`. All other dependencies should be installed automatically with instructions below.
 
-### Environment Setup
 
+
+
+### Installation
 ```bash
-# Create and activate environment for HiScanner
-python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+# Create new conda environment with all dependencies
 
-# Install HiScanner and dependencies
+conda create -n hiscanner_test python=3.8
+conda activate hiscanner_test
+
+conda install -c conda-forge r-base
+conda install -c conda-forge r-mgcv>=1.8
+conda install bioconda::snakemake
+# conda install -c bioconda samtools>=1.9 bcftools>=1.9 tabix py-bgzip
+# conda install -c conda-forge graphviz
+
+# Install HiScanner
 pip install .
-
-# Additional required tools
-conda install -c conda-forge py-bgzip tabix graphviz samtools r-base
 ```
+
 
 ## Pipeline Overview
 
@@ -34,7 +59,9 @@ HiScanner works in a modular fashion with five main steps:
 
 SCAN2 needs to be run separately before using HiScanner. If you have already run SCAN2, ensure you have:
 - VCF file with raw variants (`gatk/hc_raw.mmq60.vcf.gz`)
-- Phased heterozygous variants (`shapeit/phased_hets.vcf.gz`)
+- Phased heterozygous variants (`shapeit/phased_hets.vcf`)
+
+- Additionally, we note that the phased genotype field in `phased_hets.vcf` should be named as `phasedgt`. This is the expected output from the SCAN2 pipeline that we have tested with. If your VCF file has a different field name, please manually rename it to `phasedgt` in the VCF.
 
 The expected location is `scan2_out/` in your project directory.
 
@@ -79,7 +106,7 @@ cell2    /path/to/cell2.bam   Y
 # Run individual steps
 hiscanner run --step phase    # Process SCAN2 results
 hiscanner run --step ado      # ADO analysis
-hiscanner run --step segment  # Segmentation
+hiscanner run --step segment  # Normalization and segmentation
 hiscanner run --step cnv      # CNV calling
 
 # Or run all steps after SCAN2
@@ -113,7 +140,19 @@ Common issues:
 
 For more detailed information, check the log files in hiscanner_output/logs/
 
+
+## Support
+HiScanner is currently under active development. For support or questions, please open an issue on our [GitHub repository](github.com/parklab/hiscanner).
+
+
 ## Citation
 
 If you use HiScanner in your research, please cite:
+
+@article{zhao2024high,
+    title={High-resolution detection of copy number alterations in single cells with HiScanner},
+    author={\textbf{Yifan Zhao} and Luquette, Lovelace J and Veit, Alexander D and Wang, Xiaochen and Xi, Ruibin and Viswanadham, Vinayak V and Shao, Diane D and Walsh, Christopher A and Yang, Hong Wei and Johnson, Mark D and Park, Peter J},
+    journal={Under revision at Nature Communications},
+    year={2024},
+}
 [Citation information to be added]

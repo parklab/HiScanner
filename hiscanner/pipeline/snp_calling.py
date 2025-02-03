@@ -151,44 +151,6 @@ def check_bcftools() -> bool:
             "Please install bcftools and ensure it's available in your PATH."
         )
 
-def prepare_scan2_results(config: Dict[str, Any]) -> Dict[str, Path]:
-    """
-    Prepare and validate SCAN2 results for downstream analysis.
-    
-    Parameters
-    ----------
-    config : Dict[str, Any]
-        Pipeline configuration
-        
-    Returns
-    -------
-    Dict[str, Path]
-        Paths to required SCAN2 output files
-        
-    Raises
-    ------
-    SNPCallingError
-        If validation fails
-    """
-    try:
-        scan2_dir = Path(config['scan2_output'])
-        
-        # Validate SCAN2 output
-        validate_scan2_output(scan2_dir)
-        
-        # Check bcftools availability
-        check_bcftools()
-        
-        # Return validated paths
-        return {
-            'raw_vcf': scan2_dir / 'gatk/hc_raw.mmq60.vcf.gz',
-            'phased_vcf': scan2_dir / 'shapeit/phased_hets.vcf.gz'
-        }
-        
-    except KeyError:
-        raise SNPCallingError("scan2_output not specified in configuration")
-    except Exception as e:
-        raise SNPCallingError(f"Error preparing SCAN2 results: {e}")
 
 def index_vcf(vcf_path: Path) -> None:
     """
@@ -244,6 +206,9 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
     logger.info("Preparing SNP calling results")
     
     try:
+        if 'scan2_output' not in config:
+            raise SNPCallingError("scan2_output not specified in configuration")
+            
         # Validate and get SCAN2 output paths
         scan2_files = prepare_scan2_results(config)
         
@@ -255,8 +220,35 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
         return scan2_files
         
     except Exception as e:
-        raise SNPCallingError(f"Error in SNP calling preparation: {e}")
+        raise SNPCallingError(f"Error in SNP calling preparation: {str(e)}")
 
+def prepare_scan2_results(config: Dict[str, Any]) -> Dict[str, Path]:
+    """
+    Prepare and validate SCAN2 results for downstream analysis.
+    """
+    try:
+        if not config or 'scan2_output' not in config:
+            raise SNPCallingError("scan2_output not specified in configuration")
+            
+        scan2_dir = Path(config['scan2_output'])
+        logger.debug(f"Using SCAN2 output directory: {scan2_dir}")
+        
+        # Validate SCAN2 output
+        validate_scan2_output(scan2_dir)
+        
+        # Check bcftools availability
+        check_bcftools()
+        
+        # Return validated paths
+        return {
+            'raw_vcf': scan2_dir / 'gatk/hc_raw.mmq60.vcf.gz',
+            'phased_vcf': scan2_dir / 'shapeit/phased_hets.vcf.gz'
+        }
+        
+    except Exception as e:
+        raise SNPCallingError(f"Error preparing SCAN2 results: {str(e)}")
+    
+    
 if __name__ == "__main__":
     # Example usage
     example_config = {

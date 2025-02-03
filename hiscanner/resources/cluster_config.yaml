@@ -1,11 +1,34 @@
+# Global cluster settings for the entire pipeline
+cluster:
+  account: "park"
+  partition: "park"
+  default_mem: "16G"
+  max_mem: "64G"
+  default_time: "0-12:00"
+  max_time: "2-00:00"
+  max_jobs: 100
 
-__default__:
-  account: "default"
-  partition: "short"
-  time: "0-12:00"
-  nodes: 1
-  ntasks: 8
-  mem: "16G"
-  job-name: "{rule}"
-  output: "cluster_logs/{rule}-%j.out"
-  error: "cluster_logs/{rule}-%j.err"
+# Individual step settings
+steps:
+  snp_calling:
+    mem: "8G"
+    time: "0-4:00"
+    ntasks: 1
+
+  phasing:
+    mem: "16G"
+    time: "0-12:00"
+    ntasks: 4
+
+  ado:
+    mem: "32G"
+    time: "0-24:00"
+    ntasks: 8
+
+  segmentation:
+    use_snakemake: true
+    
+  cnv:
+    mem: "32G"
+    time: "1-00:00"
+    ntasks: 8
