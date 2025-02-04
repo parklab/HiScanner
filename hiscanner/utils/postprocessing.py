@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+from scipy.signal import find_peaks
+from scipy.special import logsumexp
 from sklearn.mixture import GaussianMixture
 from collections import Counter
 import math
 from typing import Tuple, List, Optional
+import itertools
 
 def annotate_seg(seg_all: pd.DataFrame, cell_data: pd.DataFrame) -> pd.DataFrame:
     """
@@ -25,7 +28,7 @@ def annotate_seg(seg_all: pd.DataFrame, cell_data: pd.DataFrame) -> pd.DataFrame
     rdr_sum, rdr_mean, vaf_mean, vaf_estimate, n_bin = [], [], [], [], []
     
     for _, row in seg_all.iterrows():
-        df = cell_data[cell_data['#CHROM'] == row.chrom]
+        df = cell_data[cell_data['CHROM'] == row.chrom]
         _seg = df[(df.START <= row.end) & (df.END >= row.start)]
         
         n_bin.append(_seg.shape[0])
@@ -76,7 +79,7 @@ def annotate_mean(cell_data: pd.DataFrame,
     df_new = []
     k = 0
     
-    for chrom, df in cell_data.groupby('#CHROM'):
+    for chrom, df in cell_data.groupby('CHROM'):
         df.index = range(df.shape[0])
         seg = seg_all[seg_all.chrom == chrom]
         k = k + seg.shape[0] - 1
@@ -254,7 +257,6 @@ def pairsum(target: int) -> Tuple[List[Tuple[int, int]], int]:
     res = list(set(res))
     return res, len(res)
 
-# Helper functions
 def estimate_vaf(a: np.ndarray, b: np.ndarray, shift: int = 2) -> float:
     """Estimate VAF from allele counts."""
     vaf = a / (b + a + 1e-10)
@@ -276,7 +278,7 @@ def estimate_vaf(a: np.ndarray, b: np.ndarray, shift: int = 2) -> float:
 def get_peak(values: np.ndarray) -> float:
     """Find the highest peak in a distribution."""
     x, grid = np.histogram(values, bins=np.arange(-0.02, 0.54, 0.02))
-    peaks, properties = stats.find_peaks(x, height=0)
+    peaks, properties = find_peaks(x, height=0)
     
     if len(peaks) == 0:
         return np.nan
@@ -374,11 +376,11 @@ def compute_bic(cell_data: pd.DataFrame, k: int, vaf_weight: float = 1, rdr_weig
     return bic
 
 def infer_ploidy(cell_data: pd.DataFrame, 
-                 seg_all3: pd.DataFrame,
-                 gamma_pool: np.ndarray,
-                 var_rdr: float,
-                 var_vaf: float,
-                 LAMBDA: float = 1) -> Tuple[float, float, List[Tuple[int, int]], List[float], List[float]]:
+    seg_all3: pd.DataFrame,
+    gamma_pool: np.ndarray,
+    var_rdr: float,
+    var_vaf: float,
+    LAMBDA: float = 1) -> Tuple[float, float, List[Tuple[int, int]], List[float], List[float]]:
     """
     Infer ploidy from cell data.
     
@@ -423,7 +425,7 @@ def infer_ploidy(cell_data: pd.DataFrame,
             for a, b in cn_pool:
                 llk = 0
                 selected_bins = cell_data[
-                    (cell_data['#CHROM']==seg.chrom) & 
+                    (cell_data['CHROM']==seg.chrom) & 
                     (cell_data.START<=seg.end) & 
                     (cell_data.END>seg.start)
                 ]
@@ -448,7 +450,7 @@ def infer_ploidy(cell_data: pd.DataFrame,
             best_llk = np.max(cn_pool_llk)
             
             max_llk = np.max(cn_pool_llk)
-            cn_pool_prob = np.exp(cn_pool_llk - max_llk) / np.exp(stats.logsumexp(cn_pool_llk - max_llk))
+            cn_pool_prob = np.exp(cn_pool_llk - max_llk) / np.exp(logsumexp(cn_pool_llk - max_llk))
             
             allele_cn = cn_pool[np.argmax(cn_pool_llk)]
             allele_cn_prob = cn_pool_prob[np.argmax(cn_pool_llk)]

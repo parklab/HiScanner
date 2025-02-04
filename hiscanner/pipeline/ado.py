@@ -33,7 +33,6 @@ def get_vaf_by_chrom(chrom, vaf, depth_filter=5, aggregate_every_k_snp=False, k=
     pd.DataFrame
         Filtered and potentially aggregated VAF data
     """
-    chrom = str(chrom)
     vaf['CHROM'] = vaf['CHROM'].astype(str)
     vaf = vaf[vaf['CHROM'] == chrom]
     
@@ -48,10 +47,7 @@ def get_vaf_by_chrom(chrom, vaf, depth_filter=5, aggregate_every_k_snp=False, k=
         vaf_agg['BAF'] = vaf_agg['pBAF'].apply(lambda x: min(x, 1-x))
         vaf_agg.reset_index(drop=True, inplace=True)
         vaf = vaf_agg
-        
     return vaf[vaf.TOTAL > depth_filter]
-
-
 
 def process_cell_ado(cell, config, metadata_all):
     """Process ADO analysis for a single cell"""
@@ -68,6 +64,7 @@ def process_cell_ado(cell, config, metadata_all):
         # Load and process data
         fname = Path(config['hetsnp_dir']) / f'{cell}.hetsnp.txt'
         vaf = pd.read_csv(fname, sep='\t', low_memory=False)
+        vaf = vaf.rename(columns={'#CHROM': 'CHROM'})
         logger.info(f'Total number of hetSNPs for {cell}: {vaf.shape[0]}')
         
         # Plot BAF distribution if requested
@@ -158,8 +155,8 @@ def process_cell_results(cell, vaf, cell_dir, config):
                     length = end_pos - start_pos
                     baf = sequence[start_idx:end_idx].mean()
                     anno.append([start_pos, end_pos, 
-                               decoded[region].shape[0], length, 
-                               state, baf])
+                        decoded[region].shape[0], length, 
+                        state, baf])
             else:
                 pos = np.array(selected.POS)
                 for region in seq_region_indices:
@@ -301,7 +298,6 @@ def plot_baf_distribution(vaf, cell_dir, config):
     """Plot distribution of pBAF in heterozygous SNPs"""
     logger.info('Plotting pBAF distribution')
     fig, ax = plt.subplots(dpi=200)
-    
     if config.get('aggregate_every_k_snp', False):
         k = config.get('k', 1)
         logger.info(f'Aggregating every {k} SNPs')

@@ -31,15 +31,30 @@ HiScanner requires [`bcftools`](https://samtools.github.io/bcftools/bcftools.htm
 
 conda create -n hiscanner_test python=3.8
 conda activate hiscanner_test
+pip install hiscanner --no-cache-dir
+```
 
-conda install -c conda-forge r-base
-conda install -c conda-forge r-mgcv>=1.8
-conda install bioconda::snakemake
-# conda install -c bioconda samtools>=1.9 bcftools>=1.9 tabix py-bgzip
+Ensure R is installed in your system with mgcv package:
+```bash
+# Option 1: Use system R
+R -e "install.packages('mgcv')"
+
+# Option 2: Install via conda
+conda install -c conda-forge r-base  
+conda install -c bioconda r-mgcv>=1.8
+```
+Check if R is installed correctly:
+```bash
+Rscript -e "library(mgcv)"
+```
+
+
+Other dependencies that need to be installed or loaded:
+```bash
+
+# other required: bcftools samtools snakemake
+# conda install -c bioconda snakemake samtools>=1.9 bcftools>=1.9 tabix py-bgzip
 # conda install -c conda-forge graphviz
-
-# Install HiScanner
-pip install .
 ```
 
 
@@ -57,7 +72,17 @@ HiScanner works in a modular fashion with five main steps:
 
 ### Step 1: SNP Calling (Prerequisites)
 
-SCAN2 needs to be run separately before using HiScanner. If you have already run SCAN2, ensure you have:
+# SCAN2 Prerequisites
+
+SCAN2 needs to be run separately before using HiScanner. 
+
+> **Note**: If you only need SCAN2 output for HiScanner (and are not interested in SNV calls), you can save time by running SCAN2 with:
+> ```bash
+> scan2 run --joblimit 5000 --snakemake-args ' --until shapeit/phased_hets.vcf.gz --latency-wait 120'
+> ```
+> This will stop at the phasing step, which is sufficient for HiScanner's requirements.
+
+If you have already run SCAN2, ensure you have:
 - VCF file with raw variants (`gatk/hc_raw.mmq60.vcf.gz`)
 - Phased heterozygous variants (`shapeit/phased_hets.vcf`)
 
@@ -73,44 +98,32 @@ hiscanner init --output ./my_project
 cd my_project
 ```
 
-2. Edit config.yaml with your paths:
-```yaml
-outdir: "./hiscanner_output"
-metadata_path: "./metadata.txt"  # Path to your metadata file
-scan2_output: "./scan2_out"      # Path to your SCAN2 results
+2. Edit config.yaml with your paths and parameters:.
 
-# External tools and reference files
-fasta_folder: "/path/to/reference/split"
-mappability_folder_stem: "/path/to/mappability/hg19.CRC.100mer."
-bicseq_norm: "/path/to/NBICseq-norm.pl"
-bicseq_seg: "/path/to/NBICseq-seg.pl"
-
-# Analysis parameters
-binsize: 500000
-max_wgd: 1
-batch_size: 5
-depth_filter: 0
-ado_threshold: 0.2
-```
-
-3. Prepare metadata file (metadata.txt):
-```
+3. Prepare metadata file which must contain the following columns:```
 bamID    bam    singlecell
 bulk1    /path/to/bulk.bam    N
 cell1    /path/to/cell1.bam   Y
 cell2    /path/to/cell2.bam   Y
 ```
+4. Validate the configuration:
+```bash
+hiscanner --config config.yaml validate
+```
 
-4. Run the pipeline:
+5. Run the pipeline:
 ```bash
 # Run individual steps
-hiscanner run --step phase    # Process SCAN2 results
-hiscanner run --step ado      # ADO analysis
-hiscanner run --step segment  # Normalization and segmentation
-hiscanner run --step cnv      # CNV calling
+hiscanner --config config.yaml run --step snp      # Quick check SCAN2 results
+hiscanner --config config.yaml run --step phase    # Process SCAN2 results
+hiscanner --config config.yaml run --step ado      # ADO analysis to identify best bin size
+## edit config.yaml with the suggested bin size
+hiscanner --config config.yaml run --step segment  # Normalization and segmentation
+hiscanner --config config.yaml run --step cnv      # CNV calling
+## review final_calls/ directory for CNV calls. Adjust lambda accordingly
 
-# Or run all steps after SCAN2
-hiscanner run --step all
+# There is also an option to run all steps after SCAN2
+hiscanner --config config.yaml run --step all
 ```
 
 ## Output Structure
@@ -149,10 +162,4 @@ HiScanner is currently under active development. For support or questions, pleas
 
 If you use HiScanner in your research, please cite:
 
-@article{zhao2024high,
-    title={High-resolution detection of copy number alterations in single cells with HiScanner},
-    author={\textbf{Yifan Zhao} and Luquette, Lovelace J and Veit, Alexander D and Wang, Xiaochen and Xi, Ruibin and Viswanadham, Vinayak V and Shao, Diane D and Walsh, Christopher A and Yang, Hong Wei and Johnson, Mark D and Park, Peter J},
-    journal={Under revision at Nature Communications},
-    year={2024},
-}
 [Citation information to be added]

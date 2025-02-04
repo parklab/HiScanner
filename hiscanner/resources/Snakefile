@@ -71,7 +71,8 @@ rule get_read_pos:
             perl -ane 'print $F[3], "\\n";' > {output.readpos}
         """
 
-# Run BICseq normalization
+# In hiscanner/resources/Snakefile
+
 rule run_bicseq_norm:
     input:
         config=str(outdir / "cfg/{sample}.cfg"),
@@ -88,17 +89,23 @@ rule run_bicseq_norm:
         temp=str(outdir / "temp/{sample}.temp")
     params:
         binsize=config["binsize"],
-        bicseq_norm=config["bicseq_norm"]
+        bicseq_norm=config["bicseq_norm"],
+        read_length=config.get("read_length", 150),  
+        fragment_size=config.get("fragment_size", 300),  
+        tmp_dir=str(outdir / "temp") 
     shell:
         """
+        mkdir -p {params.tmp_dir}
         {params.bicseq_norm} \
             -b={params.binsize} \
             --gc_bin \
             -p=0.0001 \
+            --tmp={params.tmp_dir} \
             {input.config} \
             {output.temp}
         """
-
+        
+        
 # Run segmentation
 rule run_segmentation:
     input:

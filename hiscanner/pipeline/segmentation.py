@@ -1,19 +1,40 @@
 from typing import Dict, Any
 from ..logger import logger
 from .workflow import run_segmentation_workflow, WorkflowError
+from pathlib import Path
+import os
 
 def run_segmentation(config: Dict[str, Any]) -> None:
     """
     Run the segmentation pipeline using Snakemake workflow.
-    
-    Parameters
-    ----------
-    config : Dict[str, Any]
-        Configuration dictionary containing paths and parameters
     """
     logger.info("Starting segmentation pipeline")
     
     try:
+        # Validate required parameters
+        required_params = [
+            'bicseq_norm',
+            'bicseq_seg',
+            'binsize',
+            'outdir'
+        ]
+        for param in required_params:
+            if param not in config:
+                raise ValueError(f"Missing required parameter: {param}")
+
+        # Set up output directory and subdirectories
+        outdir = Path(config['outdir'])
+        subdirs = ['readpos', 'bins', 'segs', 'temp', 'cfg', 'segcfg']
+        for subdir in subdirs:
+            (outdir / subdir).mkdir(parents=True, exist_ok=True)
+
+        # Set tmp_dir within outdir
+        config['tmp_dir'] = str(outdir / 'temp')
+        
+        # Set default values for optional parameters
+        config.setdefault('read_length', 150)
+        config.setdefault('fragment_size', 300)
+
         # Determine if we should use cluster mode
         use_cluster = config.get('use_cluster', False)
         
@@ -26,13 +47,12 @@ def run_segmentation(config: Dict[str, Any]) -> None:
         
         logger.info("Segmentation pipeline completed successfully")
         
-    except WorkflowError as e:
+    except Exception as e:
         logger.error(f"Error in segmentation pipeline: {e}")
         raise
-    except Exception as e:
-        logger.error(f"Unexpected error in segmentation pipeline: {e}")
-        raise
 
+
+    
 def create_config_files(config: Dict[str, Any]) -> None:
     """
     Create configuration files for segmentation.

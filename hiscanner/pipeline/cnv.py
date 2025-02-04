@@ -20,24 +20,27 @@ def process_cell(cell: str,
                 chroms: List[str]) -> None:
     """Process a single cell for CNV calling."""
     try:
-        final_call_dir = Path(config['final_call_dir'])
-        final_call_dir.mkdir(parents=True, exist_ok=True)
+        final_call_dir = Path(config['outdir']) / 'final_calls'
         logger.info(f'Processing cell {cell}')
-        
-        # Prepare input table
-        cell_data = prep_input_table(
-            cell,
-            config['hetsnp_dir'],
-            config['bin_dir'],
-            chroms
-        )
-        cell_data.to_csv(final_call_dir / f'{cell}_input_table.txt', 
-                        sep='\t', index=False)
-
+        input_table_path = final_call_dir / f'{cell}_input_table.txt'
+        if not input_table_path.exists() or config.get('rerun', False):
+            # Prepare input table
+            cell_data = prep_input_table(
+                cell,
+                Path(config['outdir']) / 'phased_hets',
+                Path(config['outdir']) / 'bins',
+                chroms
+            )
+            cell_data.to_csv(input_table_path,
+                            sep='\t', index=False)
+        else:
+            cell_data = pd.read_csv(input_table_path, sep='\t')
+            
+            
         # Read segments
         logger.info(f'Reading segments for {cell} (lambda={config["lambda_value"]})')
-        seg_all = pd.read_csv(
-            f'{config["seg_dir"]}/{cell}/lambda{config["lambda_value"]}.cnv',
+        segdir = Path(config['outdir']) / 'segs'
+        seg_all = pd.read_csv(f'{segdir}/{cell}/lambda{config["lambda_value"]}.cnv',
             sep='\t'
         )
 
@@ -101,61 +104,27 @@ def process_cell(cell: str,
         logger.error(f"Error processing cell {cell}: {e}")
         raise
 
-def draw_track(cell: str, final_call_dir: Path, baf_alpha: float = 0.5) -> None:
-    """Draw CNV and BAF tracks for a cell."""
-    cell_data_path = final_call_dir / f'{cell}.txt'
-    if not cell_data_path.exists():
-        logger.error(f"Error: {cell_data_path} does not exist")
-        return
-
-    cell_data = pd.read_csv(cell_data_path, sep='\t')
-    cell_data = cell_data[~cell_data['#CHROM'].isin(['X', 'Y'])]
-    cell_data['#CHROM'] = cell_data['#CHROM'].astype(int)
-    cell_data = cell_data.sort_values(by=['#CHROM', 'START'])
-
-    # Create visualization
-    fig, (ax1, ax2) = plt.subplots(2, figsize=(8, 3), sharex=True, dpi=200)
-    
-    # Plot copy number track
-    ax1.scatter(cell_data.index.values, 
-               cell_data['RDR'].values * cell_data['gamma'].values[0],
-               s=1, color='darkgrey')
-    ax1.plot(cell_data.index.values, cell_data['CN_total'].values,
-             color='black', lw=.5, alpha=1)
-    
-    # Plot BAF track
-    ax2.scatter(cell_data.index.values, cell_data['pBAF'].values,
-                s=1, color='darkgrey', alpha=baf_alpha)
-    
-    # Customize plot appearance
-    ax2.set_ylim(-0.05, 1.05)
-    ax1.set_ylim(0, 10)
-    ax1.set_yticks([0, 2, 4, 6, 8, 10])
-    ax2.set_ylabel('BAF')
-    ax1.set_ylabel('Copy Number')
-    
-    plt.tight_layout()
-    plt.savefig(final_call_dir / f'{cell}_track.png', dpi=300)
-    plt.close()
-
 def run_cnv_calling(config: Dict[str, Any]) -> None:
     """Run CNV calling pipeline."""
     logger.info("Starting CNV calling pipeline")
     
     try:
         # Get cell list
-        if 'cell_file' in config:
-            cells_df = pd.read_csv(config['cell_file'], sep='\t')
+        if 'metadata_path' in config:
+            cells_df = pd.read_csv(config['metadata_path'], sep='\t')
             if 'singlecell' in cells_df.columns:
                 cells_df = cells_df.query('singlecell=="Y"')
+            else:
+                raise ValueError("singlecell column not found in metadata file")
             cells = cells_df['bamID'].tolist()
-        elif 'cells' in config:
+        elif 'cells' in config: ## todo: enhancement to allow for subset of cells, e.g., ["cellA","cellB"] as input
             cells = config['cells']
         else:
             raise ValueError("Either 'cells' or 'cell_file' must be provided")
 
         # Create output directory
-        final_call_dir = Path(config['final_call_dir'])
+        final_call_dir = Path(config['outdir']) / 'final_calls'
+        logger.info(f"Saving final calls to {final_call_dir}")
         final_call_dir.mkdir(parents=True, exist_ok=True)
 
         # Process cells in parallel
@@ -164,7 +133,7 @@ def run_cnv_calling(config: Dict[str, Any]) -> None:
             for cell in cells:
                 if config.get('rerun', False) or not (final_call_dir / f'{cell}.txt').exists():
                     futures.append(
-                        executor.submit(process_cell, cell, config, config['chroms'])
+                        executor.submit(process_cell, cell, config, config['chrom_list'])
                     )
 
             # Wait for all processes to complete
@@ -181,3 +150,83 @@ def run_cnv_calling(config: Dict[str, Any]) -> None:
     except Exception as e:
         logger.error(f"Error in CNV calling pipeline: {e}")
         raise
+    
+    
+def draw_track(cell: str, final_call_dir: Path, baf_alpha: float = 0.5) -> None:
+    """
+    Draw CNV and BAF tracks for a cell with chromosome borders.
+    
+    Parameters
+    ----------
+    cell : str
+        Cell identifier
+    final_call_dir : Path
+        Directory containing final call data
+    baf_alpha : float
+        Alpha value for BAF plot points
+    """
+    cell_data_path = final_call_dir / f'{cell}.txt'
+    if not cell_data_path.exists():
+        logger.error(f"Error: {cell_data_path} does not exist")
+        return
+
+    # Read and prepare data
+    cell_data = pd.read_csv(cell_data_path, sep='\t')
+    cell_data = cell_data[~cell_data['CHROM'].isin(['X', 'Y'])]
+    cell_data['CHROM'] = cell_data['CHROM'].astype(int)
+    
+    # Sort by chromosome and position
+    cell_data = cell_data.sort_values(['CHROM', 'START'])
+    
+    # Calculate chromosome boundaries
+    chrom_boundaries = []
+    current_pos = 0
+    x_positions = []
+    chrom_centers = []
+    
+    for chrom, group in cell_data.groupby('CHROM'):
+        n_bins = len(group)
+        x_positions.extend(range(current_pos, current_pos + n_bins))
+        chrom_centers.append((current_pos + (current_pos + n_bins - 1)) / 2)
+        current_pos += n_bins
+        chrom_boundaries.append(current_pos - 0.5)
+    
+    # Create figure
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(15, 6), sharex=True, gridspec_kw={'height_ratios': [2, 1]})
+    fig.subplots_adjust(hspace=0.1)
+    
+    # Plot copy number track
+    ax1.scatter(x_positions, cell_data['RDR'].values * cell_data['gamma'].values[0], 
+               s=1, color='darkgrey', alpha=0.5)
+    ax1.plot(x_positions, cell_data['CN_total'].values, color='black', lw=0.5)
+    
+    # Plot BAF track
+    ax2.scatter(x_positions, cell_data['pBAF'].values, s=1, color='darkgrey', alpha=baf_alpha)
+    
+    # Add chromosome boundaries and labels
+    for boundary in chrom_boundaries[:-1]:  # Don't add line after last chromosome
+        ax1.axvline(x=boundary, color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+        ax2.axvline(x=boundary, color='black', linestyle='-', linewidth=0.5, alpha=0.3)
+    
+    # Add chromosome labels
+    chroms = sorted(cell_data['CHROM'].unique())
+    ax2.set_xticks(chrom_centers)
+    ax2.set_xticklabels(chroms)
+    
+    # Customize plot appearance
+    ax2.set_ylim(-0.05, 1.05)
+    ax1.set_ylim(0, 10)
+    ax1.set_yticks([0, 2, 4, 6, 8, 10])
+    
+    # Add labels
+    ax2.set_ylabel('BAF')
+    ax1.set_ylabel('Copy Number')
+    ax2.set_xlabel('Chromosome')
+    
+    # Remove unnecessary spines
+    for ax in [ax1, ax2]:
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+    
+    plt.savefig(final_call_dir / f'{cell}_track.png', dpi=300, bbox_inches='tight')
+    plt.close()

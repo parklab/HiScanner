@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from ..logger import logger
 from .snp_calling import SNPCallingError
 import numpy as np
-
+import gzip
 class PhasingError(Exception):
     """Custom exception for phasing errors"""
     pass
@@ -54,16 +54,7 @@ def validate_inputs(config: Dict[str, Any]) -> Dict[str, Path]:
         raise PhasingError(f"Input validation failed: {e}")
     
     
-import os
-import subprocess
-import pandas as pd
-from pathlib import Path
-from typing import Dict, Any, List
-from concurrent.futures import ThreadPoolExecutor
-from ..logger import logger
-from .snp_calling import SNPCallingError
-import numpy as np
-import gzip
+
 
 def run_phasing(config: Dict[str, Any]) -> None:
     """

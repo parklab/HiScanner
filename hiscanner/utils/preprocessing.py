@@ -33,8 +33,8 @@ def prep_input_table(cell: str,
 
     # Read phased BAF
     fname = Path(hetsnp_dir) / f'{cell}.hetsnp.txt'
-    vaf = pd.read_csv(fname, sep='\t')
-    vaf['#CHROM'] = vaf['#CHROM'].astype(str)
+    vaf = pd.read_csv(fname, sep='\t', low_memory=False)
+    vaf['CHROM'] = vaf['CHROM'].astype(str)
 
     # Read RDR and grids
     rdr, obs, exp = [], [], []
@@ -52,9 +52,9 @@ def prep_input_table(cell: str,
     for chrom, g in grid.items():
         for i in range(len(g)):
             start, end = g[i]
-            selected = vaf[(vaf['#CHROM']==chrom) & 
-                         (vaf['POS']>=start) & 
-                         (vaf['POS']<=end)]
+            selected = vaf[(vaf['CHROM']==chrom) & 
+                (vaf['POS']>=start) & 
+                (vaf['POS']<=end)]
             cell_table.append([
                 chrom, start, end, 
                 selected.A.sum(), 
@@ -64,7 +64,7 @@ def prep_input_table(cell: str,
     
     # Create DataFrame and add derived columns
     cell_table = pd.DataFrame(cell_table)
-    cell_table.columns = ['#CHROM','START','END','A','B','N']
+    cell_table.columns = ['CHROM','START','END','A','B','N']
     cell_table.loc[:,'TOTAL'] = cell_table['A'] + cell_table['B']
     cell_table.loc[:,'pBAF'] = cell_table['B'] / (cell_table['TOTAL'] + 1e-10)
     cell_table.loc[:,'BAF'] = cell_table['pBAF'].apply(lambda x: min(x, 1-x))
@@ -75,6 +75,6 @@ def prep_input_table(cell: str,
     cell_table['RDR'] = rdr
     cell_table['OBS'] = obs
     cell_table['EXP'] = exp
-    cell_table['#CHROM'] = cell_table['#CHROM'].astype(str)
+    cell_table['CHROM'] = cell_table['CHROM'].astype(str)
     
     return cell_table
