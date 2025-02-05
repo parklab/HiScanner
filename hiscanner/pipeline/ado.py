@@ -10,7 +10,6 @@ import pickle
 import scipy
 import os
 
-
 def get_vaf_by_chrom(chrom, vaf, depth_filter=5, aggregate_every_k_snp=False, k=1):
     """
     Get VAF data for a specific chromosome

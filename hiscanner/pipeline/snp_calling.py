@@ -260,3 +260,83 @@ if __name__ == "__main__":
         print(f"Prepared files: {results}")
     except SNPCallingError as e:
         print(f"Error: {e}")
+        
+        
+def check_samtools() -> bool:
+    """
+    Check if samtools is available.
+    
+    Returns
+    -------
+    bool
+        True if samtools is available
+        
+    Raises
+    ------
+    SNPCallingError
+        If samtools is not available
+    """
+    try:
+        result = subprocess.run(
+            ['samtools', '--version'], 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True
+        )
+        logger.debug(f"Found samtools: {result.stdout.split()[1]}")
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        raise SNPCallingError(
+            "samtools not found in PATH.\n"
+            "Please install samtools and ensure it's available in your PATH."
+        )
+
+def check_r_and_mgcv() -> bool:
+    """
+    Check if R is available and mgcv package is installed.
+    
+    Returns
+    -------
+    bool
+        True if R and mgcv are available
+        
+    Raises
+    ------
+    SNPCallingError
+        If R or mgcv package is not available
+    """
+    # First check if R is available
+    try:
+        result = subprocess.run(
+            ['R', '--version'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True
+        )
+        logger.debug(f"Found R: {result.stdout.split()[0]}")
+    except (subprocess.SubprocessError, FileNotFoundError):
+        raise SNPCallingError(
+            "R not found in PATH.\n"
+            "Please install R and ensure it's available in your PATH."
+        )
+
+    # Then check if mgcv package is available
+    try:
+        result = subprocess.run(
+            ['Rscript', '-e', 'library(mgcv)'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True
+        )
+        logger.debug("Found R package: mgcv")
+        return True
+    except subprocess.CalledProcessError:
+        raise SNPCallingError(
+            "R package 'mgcv' not found.\n"
+            "Please install mgcv package using either:\n"
+            "  1. R command: install.packages('mgcv')\n"
+            "  2. conda: conda install -c conda-forge r-mgcv"
+        )

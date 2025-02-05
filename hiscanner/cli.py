@@ -13,6 +13,8 @@ from .pipeline import (
     run_cnv_calling
 )
 
+from .pipeline.snp_calling import SNPCallingError
+
 # Initialize logger
 logger = get_logger(__name__)
 
@@ -133,19 +135,63 @@ def validate(config_path: Optional[str]):
         logger.info("✓ SCAN2 outputs validated successfully")
         
         # Check external tools
-        from .pipeline.snp_calling import check_bcftools
+        from .pipeline.snp_calling import check_bcftools, check_samtools, check_r_and_mgcv
         check_bcftools()
-        logger.info("✓ External tools validated successfully")
+        logger.info("✓ bcftools validated successfully")
+        check_samtools()
+        logger.info("✓ samtools validated successfully")
+        check_r_and_mgcv()
+        logger.info("✓ R and mgcv package validated successfully")
         
         logger.info("All validation checks passed successfully!")
         
     except ConfigError as e:
         logger.error(f"Configuration error: {e}")
         sys.exit(1)
+    except SNPCallingError as e:
+        logger.error(f"Tool validation error: {e}")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Validation error: {e}")
         sys.exit(1)
-
+        
+@cli.command()
+@click.option('--all', 'clean_all', is_flag=True, help='Remove all temporary and output files')
+def clean(clean_all: bool):
+    """Remove temporary files and directories."""
+    try:
+        # Default directories to clean
+        temp_dirs = ['cfg', 'segcfg', 'readpos', 'temp']
+        
+        # Get output directory from config if available
+        outdir = Path('.')
+        if config.config:  # If config is loaded
+            outdir = Path(config.config['outdir'])
+        
+        # Add output directories if --all flag is used
+        if clean_all:
+            temp_dirs.extend(['bins', 'segs', 'phased_hets', 'ado', 'final_calls'])
+        
+        removed = []
+        for dirname in temp_dirs:
+            dir_path = outdir / dirname
+            if dir_path.exists():
+                try:
+                    import shutil
+                    shutil.rmtree(dir_path)
+                    removed.append(dirname)
+                except Exception as e:
+                    logger.warning(f"Could not remove {dirname}: {e}")
+        
+        if removed:
+            logger.info(f"✓ Removed directories: {', '.join(removed)}")
+        else:
+            logger.info("No temporary directories found to clean")
+            
+    except Exception as e:
+        logger.error(f"Error cleaning directories: {e}")
+        sys.exit(1)
+        
 @cli.command()
 @click.option('--output', 
               type=click.Path(), 

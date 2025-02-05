@@ -7,8 +7,7 @@ HiScanner is a python package for high-resolution single-cell copy number analys
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-    - [Environment Setup](#environment-setup)
+- [Installation](#installation)
 - [Pipeline Overview](#pipeline-overview)
 - [Running the Pipeline](#running-the-pipeline)
     - [Step 1: SNP Calling (Prerequisites)](#step-1-snp-calling-prerequisites)
@@ -17,11 +16,6 @@ HiScanner is a python package for high-resolution single-cell copy number analys
 - [Required External Files](#required-external-files)
 - [Troubleshooting](#troubleshooting)
 - [Citation](#citation)
-
-
-## Prerequisites
-HiScanner requires [`bcftools`](https://samtools.github.io/bcftools/bcftools.html), which must be included in `PATH`. All other dependencies should be installed automatically with instructions below.
-
 
 
 
@@ -49,15 +43,10 @@ Rscript -e "library(mgcv)"
 ```
 
 
-Other dependencies that need to be installed or loaded:
+Other dependencies that need to be installed via conda:
 ```bash
-
-# other required: bcftools samtools snakemake
-# conda install -c bioconda snakemake samtools>=1.9 bcftools>=1.9 tabix py-bgzip
-# conda install -c conda-forge graphviz
+conda install -c bioconda snakemake samtools>=1.9 bcftools>=1.9
 ```
-
-
 ## Pipeline Overview
 
 HiScanner works in a modular fashion with five main steps:
@@ -72,9 +61,9 @@ HiScanner works in a modular fashion with five main steps:
 
 ### Step 1: SNP Calling (Prerequisites)
 
-# SCAN2 Prerequisites
+#### SCAN2 Prerequisites
 
-SCAN2 needs to be run separately before using HiScanner. 
+[SCAN2](https://github.com/parklab/SCAN2) needs to be run separately before using HiScanner. 
 
 > **Note**: If you only need SCAN2 output for HiScanner (and are not interested in SNV calls), you can save time by running SCAN2 with:
 > ```bash
@@ -98,14 +87,16 @@ hiscanner init --output ./my_project
 cd my_project
 ```
 
-2. Edit config.yaml with your paths and parameters:.
+2. Edit config.yaml with your paths and parameters.
 
-3. Prepare metadata file which must contain the following columns:```
+3. Prepare metadata file which must contain the following columns:
+```
 bamID    bam    singlecell
 bulk1    /path/to/bulk.bam    N
 cell1    /path/to/cell1.bam   Y
 cell2    /path/to/cell2.bam   Y
 ```
+
 4. Validate the configuration:
 ```bash
 hiscanner --config config.yaml validate
@@ -137,6 +128,13 @@ hiscanner_output/
 └── final_calls/      # Final CNV calls
 ```
 
+
+## Cleaning Up
+HiScanner creates several temporary directories during analysis. You can clean these up using the clean command:
+```bash
+hiscanner clean
+```
+
 ## Required External Files
 
 1. Reference genome (hg19/v37 recommended)
@@ -162,4 +160,4 @@ HiScanner is currently under active development. For support or questions, pleas
 
 If you use HiScanner in your research, please cite:
 
-[Citation information to be added]
+Zhao, Y., Luquette, L. J., Veit, A. D., Wang, X., Xi, R., Viswanadham, V. V., ... & Park, P. J. (2024). High-resolution detection of copy number alterations in single cells with HiScanner. bioRxiv, 2024-04.
