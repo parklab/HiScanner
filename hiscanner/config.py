@@ -22,9 +22,37 @@ class Config:
             default_config = Path(__file__).parent / "resources/default_config.yaml"
             with open(default_config) as f:
                 self.config = yaml.safe_load(f)
+                
+            # Add tool paths
+            self.config['bicseq_norm'] = str(self._find_tool_path('NBICseq-norm.pl'))
+            self.config['bicseq_seg'] = str(self._find_tool_path('NBICseq-seg.pl'))
+            self.config['mbicseq_path'] = str(self._find_tool_path('mbicseq'))
+                
         except Exception as e:
             raise ConfigError(f"Failed to load default configuration: {e}")
-
+    def _find_tool_path(self, tool_name: str) -> Path:
+        """Find path to bundled tool executable."""
+        try:
+            # Check if tool exists in resources/tools directory
+            if tool_name.endswith('seg.pl'):
+                tool_path = Path(__file__).parent / "resources/tools/singlesample_seg" / tool_name
+            elif tool_name.endswith('norm.pl'):
+                tool_path = Path(__file__).parent / "resources/tools/singlesample_norm" / tool_name
+            elif tool_name == 'mbicseq':
+                    tool_path = Path(__file__).parent / "resources/tools/" / tool_name
+            
+            if not tool_path.exists():
+                raise ConfigError(f"Tool not found: {tool_path}")
+                
+            # Make executable if needed
+            if not tool_path.suffix == '.pl':
+                tool_path.chmod(0o755)
+                
+            return tool_path
+            
+        except Exception as e:
+            raise ConfigError(f"Error finding tool {tool_name}: {e}")
+    
     def update_from_file(self, config_path: Union[str, Path]) -> None:
         """
         Update configuration from user-provided YAML file
@@ -58,7 +86,6 @@ class Config:
         """
         # Required parameters that must be set
         required_params = {
-            'scan2_output': 'SCAN2 results directory',
             'metadata_path': 'Metadata file',
             'outdir': 'Output directory',
             'fasta_folder': 'Reference genome folder',
@@ -66,7 +93,11 @@ class Config:
             'bicseq_norm': 'NBICseq-norm.pl path',
             'bicseq_seg': 'NBICseq-seg.pl path'
         }
-        
+
+        # Add SCAN2 requirement if not in RDR-only mode
+        if not self.config.get('rdr_only', False):
+            required_params['scan2_output'] = 'SCAN2 results directory'
+                
         # Check for null or missing required parameters
         missing = []
         for param, desc in required_params.items():

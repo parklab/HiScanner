@@ -4,4 +4,9 @@ include hiscanner/resources/default_config.yaml
 include hiscanner/resources/cluster.yaml
 include hiscanner/resources/cluster_config.yaml
 include hiscanner/resources/Snakefile
+include hiscanner/resources/tools/NBICseq-norm.pl
+include hiscanner/resources/tools/NBICseq-seg.pl
+include hiscanner/resources/tools/linux/mbicseq
+include hiscanner/resources/tools/osx/mbicseq
+include hiscanner/resources/tools/win/mbicseq.exe
 recursive-include hiscanner/resources *

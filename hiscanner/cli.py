@@ -129,10 +129,11 @@ def validate(config_path: Optional[str]):
         logger.info("✓ Output directories can be created")
         
         # Validate SCAN2 outputs
-        from .pipeline.snp_calling import validate_scan2_output
-        scan2_dir = Path(config.config['scan2_output'])
-        validate_scan2_output(scan2_dir)
-        logger.info("✓ SCAN2 outputs validated successfully")
+        if not config.config.get('rdr_only', False):
+            from .pipeline.snp_calling import validate_scan2_output
+            scan2_dir = Path(config.config['scan2_output'])
+            validate_scan2_output(scan2_dir)
+            logger.info("✓ SCAN2 outputs validated successfully")
         
         # Check external tools
         from .pipeline.snp_calling import check_bcftools, check_samtools, check_r_and_mgcv

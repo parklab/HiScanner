@@ -4,9 +4,16 @@ from .workflow import run_segmentation_workflow, WorkflowError
 from pathlib import Path
 import os
 
+from typing import Dict, Any
+from ..logger import logger
+from .workflow import run_segmentation_workflow, WorkflowError
+from pathlib import Path
+import os
+
 def run_segmentation(config: Dict[str, Any]) -> None:
     """
-    Run the segmentation pipeline using Snakemake workflow.
+    Run the segmentation pipeline. Always performs normalization using standard workflow,
+    then either uses standard or multisample segmentation based on configuration.
     """
     logger.info("Starting segmentation pipeline")
     
@@ -38,20 +45,34 @@ def run_segmentation(config: Dict[str, Any]) -> None:
         # Determine if we should use cluster mode
         use_cluster = config.get('use_cluster', False)
         
-        # Run the workflow
-        run_segmentation_workflow(
-            config=config,
-            cluster_mode=use_cluster,
-            clean=config.get('clean', False)
-        )
+        # Run standard workflow
+        if config.get('use_multisample_segmentation', False):
+            logger.info("Running standard normalization followed by multisample segmentation")
+            # Run standard workflow for normalization
+            run_segmentation_workflow(
+                config=config,
+                cluster_mode=use_cluster,
+                clean=config.get('clean', False)
+            )
+            
+            # Then run multisample segmentation
+            from .multisample_segmentation import run_normalized_bin_segmentation
+            run_normalized_bin_segmentation(config)
+        else:
+            logger.info("Running standard segmentation pipeline")
+            # Run complete standard workflow
+            run_segmentation_workflow(
+                config=config,
+                cluster_mode=use_cluster,
+                clean=config.get('clean', False)
+            )
         
         logger.info("Segmentation pipeline completed successfully")
         
     except Exception as e:
         logger.error(f"Error in segmentation pipeline: {e}")
         raise
-
-
+    
     
 def create_config_files(config: Dict[str, Any]) -> None:
     """

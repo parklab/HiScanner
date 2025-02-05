@@ -22,14 +22,8 @@ eggs/
 *.swp
 *.swo
 
-# Environment
-venv/
-*_env/
-
-# Duplicate files at root (since they're in the hiscanner package)
-/cli.py
-/config.py
 
 # System files
 .DS_Store
 .claudesync/
+.claudeignore

@@ -2,66 +2,111 @@
 [![PyPI version](https://badge.fury.io/py/hiscanner.svg)](https://badge.fury.io/py/hiscanner)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-HiScanner is a python package for high-resolution single-cell copy number analysis.
+HiScanner is a python package for high-resolution single-cell copy number analysis. It supports two modes of operation:
 
+1. **Standard Pipeline** (RDR + BAF): Full analysis using both read depth ratios (RDR) and B-allele frequencies (BAF)
+2. **RDR-only Pipeline**: Simplified analysis using only read depth ratios
 
 ## Table of Contents
 
 - [Installation](#installation)
-- [Pipeline Overview](#pipeline-overview)
-- [Running the Pipeline](#running-the-pipeline)
-    - [Step 1: SNP Calling (Prerequisites)](#step-1-snp-calling-prerequisites)
-    - [Steps 2-5: HiScanner Analysis](#steps-2-5-hiscanner-analysis)
-- [Output Structure](#output-structure)
 - [Required External Files](#required-external-files)
+- [Pipeline Options](#pipeline-options)
+- [Running the Pipeline](#running-the-pipeline)
+- [Output Structure](#output-structure)
 - [Troubleshooting](#troubleshooting)
 - [Citation](#citation)
-
-
 
 ### Installation
 ```bash
 # Create new conda environment with all dependencies
-
 conda create -n hiscanner_test python=3.8
 conda activate hiscanner_test
 pip install hiscanner --no-cache-dir
 ```
 
-Ensure R is installed in your system with mgcv package:
+Install R and required packages:
 ```bash
-# Option 1: Use system R
-R -e "install.packages('mgcv')"
-
-# Option 2: Install via conda
 conda install -c conda-forge r-base  
 conda install -c bioconda r-mgcv>=1.8
 ```
-Check if R is installed correctly:
+
+Install other dependencies:
 ```bash
-Rscript -e "library(mgcv)"
+conda install -c bioconda snakemake samtools bcftools
+```
+We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
+
+## Required External Files: 
+
+### 1) Mappability Track
+
+Download mappability tracks for the reference genome you are using. Here we provide mappability tracks for hg19/GRCh37 and GRCh38.
+ - hg19/GRCh37 (100bp)
+```bash
+wget https://www.math.pku.edu.cn/teachers/xirb/downloads/software/BICseq2/Mappability/hg19CRG.100bp.tar.gz --no-check-certificate
+tar -xvzf hg19CRG.100bp.tar.gz
+```
+
+- GRCh38 (150bp): Coming soon
+
+
+- Custom Track Generation:
+For other genomes/read length configurations, follow instructions at [CGAP Annotations](https://cgap-annotations.readthedocs.io/en/latest/bic-seq2_mappability.html) to generate mappability tracks.
+
+*Important Notes on Read Length Compatibility*
+
+- **Shorter mappability track (e.g., 100bp) with longer reads (e.g., 150bp)**: Valid but conservative (some uniquely mappable regions may be missed)
+- **Longer mappability track (e.g., 150bp) with shorter reads (e.g., 100bp)**: Not valid, will cause false positives
+
+
+### 2) Reference Genome
+We require the reference genome fasta to be split into chromosomes, to allow for parallel processing. You can use the following command to split the reference genome:
+```bash
+samtools faidx /path/to/reference.fa
+mkdir /path/to/reference/split
+awk '{print $1}' /path/to/reference.fa.fai | xargs -I {} samtools faidx /path/to/reference.fa {} > /path/to/reference/split/{}.fa
 ```
 
 
-Other dependencies that need to be installed via conda:
-```bash
-conda install -c bioconda snakemake samtools>=1.9 bcftools>=1.9
-```
-## Pipeline Overview
+## Pipeline Options
 
-HiScanner works in a modular fashion with five main steps:
+HiScanner offers two pipeline options:
 
-1. SNP Calling (via SCAN2, requires separate environment)
-2. Heterozygous SNP Selection & BAF Computation
-3. ADO Pattern Analysis
-4. Normalization & Segmentation 
+### 1. Standard Pipeline (RDR + BAF)
+Uses both read depth ratios and B-allele frequencies for comprehensive CNV analysis.
+
+Steps:
+1. SNP Calling (via SCAN2)
+2. Phasing & BAF Computation
+3. ADO Analysis
+4. Segmentation
 5. CNV Calling
+
+Requirements:
+- SCAN2 output files
+- Bulk and single cell BAM files
+- Reference genome
+- Mappability tracks
+
+### 2. RDR-only Pipeline
+Uses only read depth ratios for simplified CNV analysis.
+
+Steps:
+1. Segmentation
+2. CNV Calling
+
+Requirements:
+- Single cell BAM files
+- Reference genome
+- Mappability tracks
 
 ## Running the Pipeline
 
-### Step 1: SNP Calling (Prerequisites)
+### Option 1: Standard Pipeline (RDR + BAF)
 
-#### SCAN2 Prerequisites
+
+#### Step 1: SCAN2 (Prerequisites)
 
 [SCAN2](https://github.com/parklab/SCAN2) needs to be run separately before using HiScanner. 
 
@@ -79,9 +124,9 @@ If you have already run SCAN2, ensure you have:
 
 The expected location is `scan2_out/` in your project directory.
 
-### Steps 2-5: HiScanner Analysis
+#### Steps 2-5: HiScanner Pipeline
 
-1. Initialize project:
+1. Initialize HiScanner project:
 ```bash
 hiscanner init --output ./my_project
 cd my_project
@@ -93,7 +138,7 @@ cd my_project
 ```
 bamID    bam    singlecell
 bulk1    /path/to/bulk.bam    N
-cell1    /path/to/cell1.bam   Y
+cell1    /path/to/cell1.bam   Y 
 cell2    /path/to/cell2.bam   Y
 ```
 
@@ -104,43 +149,62 @@ hiscanner --config config.yaml validate
 
 5. Run the pipeline:
 ```bash
-# Run individual steps
-hiscanner --config config.yaml run --step snp      # Quick check SCAN2 results
+hiscanner --config config.yaml run --step snp      # Check SCAN2 results
 hiscanner --config config.yaml run --step phase    # Process SCAN2 results
-hiscanner --config config.yaml run --step ado      # ADO analysis to identify best bin size
-## edit config.yaml with the suggested bin size
-hiscanner --config config.yaml run --step segment  # Normalization and segmentation
+hiscanner --config config.yaml run --step ado      # ADO analysis to identify optimal bin size
+hiscanner --config config.yaml run --step segment  # Normalization and Segmentation
 hiscanner --config config.yaml run --step cnv      # CNV calling
-## review final_calls/ directory for CNV calls. Adjust lambda accordingly
 
-# There is also an option to run all steps after SCAN2
+# Or run all steps at once:
 hiscanner --config config.yaml run --step all
 ```
+
+### Option 2: RDR-only Pipeline
+
+1. Initialize project:
+```bash
+hiscanner init --output ./my_project
+cd my_project
+```
+
+2. Edit config.yaml:
+- Set `rdr_only: true`
+- Configure paths and parameters
+
+3. Prepare metadata file which must contain the following columns (bulk samples are not required):
+```
+bamID    bam    singlecell
+cell1    /path/to/cell1.bam   Y 
+cell2    /path/to/cell2.bam   Y
+```
+
+4. Validate the configuration:
+```bash
+hiscanner --config config.yaml validate
+
+5. Run the pipeline:
+```bash
+hiscanner --config config.yaml run --step segment  # Segmentation
+hiscanner --config config.yaml run --step cnv      # CNV calling
+```
+
 
 ## Output Structure
 
 ```
 hiscanner_output/
-├── phased_hets/       # Processed heterozygous SNPs
-├── ado/               # ADO analysis results
+├── phased_hets/       # Processed heterozygous SNPs (Standard pipeline only)
+├── ado/               # ADO analysis results (Standard pipeline only)
 ├── bins/             # Binned read depth
 ├── segs/             # Segmentation results
 └── final_calls/      # Final CNV calls
 ```
-
 
 ## Cleaning Up
 HiScanner creates several temporary directories during analysis. You can clean these up using the clean command:
 ```bash
 hiscanner clean
 ```
-
-## Required External Files
-
-1. Reference genome (hg19/v37 recommended)
-2. Mappability files
-3. SCAN2 output files
-4. NBICseq tools (for segmentation)
 
 ## Troubleshooting
 
@@ -161,3 +225,4 @@ HiScanner is currently under active development. For support or questions, pleas
 If you use HiScanner in your research, please cite:
 
 Zhao, Y., Luquette, L. J., Veit, A. D., Wang, X., Xi, R., Viswanadham, V. V., ... & Park, P. J. (2024). High-resolution detection of copy number alterations in single cells with HiScanner. bioRxiv, 2024-04.
+
