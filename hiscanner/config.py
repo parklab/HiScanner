@@ -30,6 +30,7 @@ class Config:
                 
         except Exception as e:
             raise ConfigError(f"Failed to load default configuration: {e}")
+
     def _find_tool_path(self, tool_name: str) -> Path:
         """Find path to bundled tool executable."""
         try:
@@ -39,7 +40,7 @@ class Config:
             elif tool_name.endswith('norm.pl'):
                 tool_path = Path(__file__).parent / "resources/tools/singlesample_norm" / tool_name
             elif tool_name == 'mbicseq':
-                    tool_path = Path(__file__).parent / "resources/tools/" / tool_name
+                tool_path = Path(__file__).parent / "resources/tools" / tool_name
             
             if not tool_path.exists():
                 raise ConfigError(f"Tool not found: {tool_path}")
@@ -94,8 +95,9 @@ class Config:
             'bicseq_seg': 'NBICseq-seg.pl path'
         }
 
-        # Add SCAN2 requirement if not in RDR-only mode
-        if not self.config.get('rdr_only', False):
+        # Only require SCAN2 output if not in RDR-only mode
+        rdr_only = self.config.get('rdr_only', False)
+        if not rdr_only:
             required_params['scan2_output'] = 'SCAN2 results directory'
                 
         # Check for null or missing required parameters
@@ -112,12 +114,15 @@ class Config:
 
         # Validate paths exist (except output directory which will be created)
         paths_to_check = {
-            'scan2_output': ['gatk/hc_raw.mmq60.vcf.gz', 'shapeit/phased_hets.vcf.gz'],
             'metadata_path': [],
             'fasta_folder': [],
             'bicseq_norm': [],
             'bicseq_seg': []
         }
+        
+        # Only check SCAN2 paths if not in RDR-only mode
+        if not rdr_only:
+            paths_to_check['scan2_output'] = ['gatk/hc_raw.mmq60.vcf.gz', 'shapeit/phased_hets.vcf.gz']
         
         for param, subpaths in paths_to_check.items():
             path = Path(self.config[param])

@@ -21,9 +21,21 @@ logger = get_logger(__name__)
 # Global config instance
 config = Config()
 
+def find_config_file() -> Optional[Path]:
+    """Look for config file in standard locations."""
+    # Check current directory first
+    local_config = Path('config.yaml')
+    if local_config.exists():
+        return local_config
+    return None
+
 def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
     """Validate configuration file exists and is readable."""
     if value is None:
+        # If no config provided via --config, look in standard locations
+        config_path = find_config_file()
+        if config_path:
+            return config_path
         return None
     try:
         path = Path(value)
@@ -32,6 +44,20 @@ def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
         return path
     except Exception as e:
         raise click.BadParameter(f"Invalid configuration file: {e}")
+
+def ensure_config_loaded() -> None:
+    """Ensure configuration is loaded before running commands."""
+    if not config.config:
+        config_path = find_config_file()
+        if config_path:
+            try:
+                config.update_from_file(config_path)
+            except ConfigError as e:
+                logger.error(f"Configuration error: {e}")
+                sys.exit(1)
+        else:
+            logger.error("No configuration file found. Please provide a config file using --config option or ensure config.yaml exists in the current directory")
+            sys.exit(1)
 
 @click.group()
 @click.version_option(version=__version__, message="HiScanner version %(version)s")
@@ -56,7 +82,6 @@ def cli(config: Optional[Path], debug: bool):
             logger.error(f"Configuration error: {e}")
             sys.exit(1)
 
-
 @cli.command()
 @click.option('--step', 
               type=click.Choice(['snp', 'phase', 'ado', 'normalize', 'segment', 'cnv', 'all']), 
@@ -69,12 +94,7 @@ def cli(config: Optional[Path], debug: bool):
 def run(step: str, use_cluster: bool):
     """Run the HiScanner pipeline."""
     try:
-        if not config.config:
-            if Path('config.yaml').exists():
-                config.update_from_file('config.yaml')
-            else:
-                raise ConfigError("No configuration file found. Please provide a config file using --config option")
-        
+        ensure_config_loaded()
         config.config['use_cluster'] = use_cluster
         
         logger.debug(f"Loaded configuration: {config.config}")
@@ -83,17 +103,23 @@ def run(step: str, use_cluster: bool):
             'snp': run_snp_calling,
             'phase': run_phasing,
             'ado': run_ado_analysis,
-            'normalize': run_normalization,  # Use the normalization function
-            'segment': run_segmentation,  # Use the segmentation_only function
+            'normalize': run_normalization,
+            'segment': run_segmentation,
             'cnv': run_cnv_calling
         }
         
         if step == 'all':
             logger.info("Running complete pipeline...")
             for step_name in ['snp', 'phase', 'ado', 'normalize', 'segment', 'cnv']:
+                if config.config.get('rdr_only', False) and step_name in ['snp', 'phase', 'ado']:
+                    logger.info(f"Skipping {step_name} step (RDR-only mode)")
+                    continue
                 logger.info(f"Running {step_name} step...")
                 steps[step_name](config.config)
         else:
+            if config.config.get('rdr_only', False) and step in ['snp', 'phase', 'ado']:
+                logger.error(f"Cannot run {step} step in RDR-only mode")
+                sys.exit(1)
             logger.info(f"Running {step} step...")
             steps[step](config.config)
             
@@ -103,7 +129,6 @@ def run(step: str, use_cluster: bool):
         logger.error(f"Error running pipeline: {e}")
         sys.exit(1)
 
-
 @cli.command()
 @click.argument('config_path', 
                 type=click.Path(exists=True),
@@ -111,15 +136,10 @@ def run(step: str, use_cluster: bool):
 def validate(config_path: Optional[str]):
     """Validate configuration and required files."""
     try:
-        # If config path provided, use it
         if config_path:
             config.update_from_file(config_path)
-        # Otherwise look for config.yaml in current directory
-        elif Path('config.yaml').exists():
-            config.update_from_file('config.yaml')
         else:
-            logger.error("No configuration file found. Please provide a config file path or run from a directory containing config.yaml")
-            sys.exit(1)
+            ensure_config_loaded()
             
         # Run validation
         config._validate_config()
@@ -129,14 +149,14 @@ def validate(config_path: Optional[str]):
         config.create_output_dirs()
         logger.info("✓ Output directories can be created")
         
-        # Validate SCAN2 outputs if not in RDR-only mode
+        # Only validate SCAN2 outputs if not in RDR-only mode
         if not config.config.get('rdr_only', False):
             from .pipeline.snp_calling import validate_scan2_output
             scan2_dir = Path(config.config['scan2_output'])
             validate_scan2_output(scan2_dir)
             logger.info("✓ SCAN2 outputs validated successfully")
         
-        # Check external tools
+        # Check external tools - always needed regardless of mode
         from .pipeline.snp_calling import check_bcftools, check_samtools, check_r_and_mgcv
         check_bcftools()
         logger.info("✓ bcftools validated successfully")
@@ -162,6 +182,8 @@ def validate(config_path: Optional[str]):
 def clean(clean_all: bool):
     """Remove temporary files and directories."""
     try:
+        ensure_config_loaded()
+        
         # Default directories to clean
         temp_dirs = ['cfg', 'segcfg', 'readpos', 'temp']
         

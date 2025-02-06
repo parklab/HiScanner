@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hiscanner"
-version = "0.2b1"
+version = "0.2b5"
 description = "High-resolution single-cell copy number analysis."
 authors = ["Yifan Zhao <yifnzhao@gmail.com>"]
 license = "MIT"

@@ -64,7 +64,7 @@ For other genomes/read length configurations, follow instructions at [CGAP Annot
 </details>
 
 <details>
-<summary>**Note these guidelines when choosing mappability tracks:**</summary>
+<summary>IMPORTANT: Guidelines when choosing mappability tracks</summary>
 
 - **Shorter mappability track (e.g., 100bp) with longer reads (e.g., 150bp)**: Valid but conservative (some uniquely mappable regions may be missed)
 - **Longer mappability track (e.g., 150bp) with shorter reads (e.g., 100bp)**: Not valid, will cause false positives
@@ -73,9 +73,9 @@ For other genomes/read length configurations, follow instructions at [CGAP Annot
 ### 2) Reference Genome
 We require the reference genome fasta to be split into chromosomes, to allow for parallel processing. You can use the following command to split the reference genome:
 ```bash
-samtools faidx /path/to/reference.fa
+samtools faidx /path/to/reference.fasta
 mkdir /path/to/reference/split
-awk '{print $1}' /path/to/reference.fa.fai | xargs -I {} samtools faidx /path/to/reference.fa {} > /path/to/reference/split/{}.fa
+awk '{print $1}' /path/to/reference.fasta.fai | xargs -I {} samtools faidx /path/to/reference.fasta {} > /path/to/reference/split/{}.fasta
 ```
 
 
@@ -252,7 +252,7 @@ hiscanner_output/
 ## Cleaning Up
 HiScanner creates several temporary directories during analysis. You can clean these up using the clean command:
 ```bash
-hiscanner clean
+hiscanner --config config.yaml clean
 ```
 
 ## Troubleshooting
