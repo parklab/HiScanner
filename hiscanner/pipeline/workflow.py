@@ -23,7 +23,7 @@ def working_directory(path):
         os.chdir(prev_cwd)
 
 class SnakemakeWorkflow:
-    """Manages Snakemake workflow execution for HiScanner segmentation"""
+    """Manages Snakemake workflow execution for normalization"""
     
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -31,18 +31,113 @@ class SnakemakeWorkflow:
         self.workflow_dir = self.outdir / '.workflow'
         self.snakemake_log_dir = self.workflow_dir / 'logs'
 
+
+    def _find_tool_path(self, tool_name: str) -> Path:
+        """Find path to bundled tool executable."""
+        try:
+            # Determine tool location based on platform
+            if tool_name == 'NBICseq-norm.pl':
+                tool_path = Path(__file__).parent.parent / 'resources' / 'tools' / 'singlesample_norm' / tool_name
+            else:
+                raise WorkflowError(f"Unknown tool: {tool_name}")
+                
+            if not tool_path.exists():
+                raise WorkflowError(
+                    f"Tool not found: {tool_path}\n"
+                    "This might indicate a corrupted or incomplete installation.\n"
+                    "Try reinstalling HiScanner: pip install --no-cache-dir --force-reinstall hiscanner"
+                )
+                    
+            # Make executable if needed
+            if not tool_path.suffix == '.pl':
+                tool_path.chmod(0o755)
+                    
+            return tool_path
+                
+        except Exception as e:
+            raise WorkflowError(f"Error finding tool {tool_name}: {e}")
+
+    def _generate_config(self) -> None:
+        """Generate Snakemake config.yaml from package config"""
+        try:
+            # Required configuration fields
+            required_fields = [
+                'outdir',
+                'metadata_path',
+                'fasta_folder',
+                'mappability_folder_stem'
+            ]
+            
+            # Validate required fields with detailed error messages
+            missing = []
+            for field in required_fields:
+                if field not in self.config:
+                    missing.append(field)
+                elif self.config[field] is None:
+                    missing.append(f"{field} (is set to None)")
+                elif isinstance(self.config[field], str) and not self.config[field].strip():
+                    missing.append(f"{field} (is empty)")
+            
+            if missing:
+                error_msg = [
+                    "Missing or invalid configuration fields:",
+                    *[f"- {field}" for field in missing],
+                    "\nPlease check your config.yaml file and ensure all required fields are set correctly.",
+                    "\nRequired fields and their purposes:",
+                    "- outdir: Directory where output files will be saved",
+                    "- metadata_path: Path to your metadata file with sample information",
+                    "- fasta_folder: Directory containing split reference genome files",
+                    "- mappability_folder_stem: Path prefix to mappability files"
+                ]
+                raise WorkflowError("\n".join(error_msg))
+
+            # Get tool paths
+            try:
+                bicseq_norm = str(self._find_tool_path('NBICseq-norm.pl'))
+            except Exception as e:
+                raise WorkflowError(f"Error locating bundled tools: {e}")
+            
+            # Create Snakemake configuration
+            snakemake_config = {
+                'outdir': str(self.outdir),
+                'metadata_path': self.config['metadata_path'],
+                'fasta_folder': self.config['fasta_folder'],
+                'mappability_folder_stem': self.config['mappability_folder_stem'],
+                'bicseq_norm': bicseq_norm,
+                'binsize': self.config.get('binsize', 500000),
+                'chrom_list': self.config.get('chrom_list', 
+                    [str(i) for i in range(1, 23)] + ['X', 'Y'])
+            }
+            
+            # Write configuration to file
+            config_path = self.workflow_dir / 'config.yaml'
+            with open(config_path, 'w') as f:
+                yaml.dump(snakemake_config, f, default_flow_style=False)
+                
+            logger.debug(f"Generated Snakemake config at {config_path}")
+                
+        except Exception as e:
+            raise WorkflowError(f"Error generating config file: {str(e)}")
+
     def _find_resource_file(self, filename: str) -> Path:
         """Find resource file using multiple methods"""
         try:
-            # Try pkg_resources first
+            # First check in current directory
+            current_dir_file = Path(filename)
+            if current_dir_file.exists():
+                logger.debug(f"Found {filename} in current directory")
+                return current_dir_file.resolve()
+
+            # Then try pkg_resources
             try:
                 resource_path = pkg_resources.resource_filename('hiscanner', f'resources/{filename}')
                 if os.path.exists(resource_path):
+                    logger.debug(f"Found {filename} in package resources")
                     return Path(resource_path)
             except Exception as e:
                 logger.debug(f"pkg_resources lookup failed for {filename}: {e}")
 
-            # Try finding relative to the current file
+            # Finally try finding relative to the current file
             current_dir = Path(__file__).resolve().parent
             possible_paths = [
                 current_dir / '..' / 'resources' / filename,  # From pipeline dir
@@ -51,9 +146,15 @@ class SnakemakeWorkflow:
 
             for path in possible_paths:
                 if path.exists():
+                    logger.debug(f"Found {filename} in {path.parent}")
                     return path.resolve()
 
-            raise WorkflowError(f"Could not find resource file: {filename}")
+            raise WorkflowError(
+                f"Could not find {filename} in:\n"
+                f"- Current directory (./{filename})\n"
+                f"- Package resources (hiscanner/resources/{filename})\n"
+                f"- Relative paths ({', '.join(str(p) for p in possible_paths)})"
+            )
         except Exception as e:
             raise WorkflowError(f"Error locating resource file {filename}: {str(e)}")
 
@@ -66,7 +167,7 @@ class SnakemakeWorkflow:
             (self.workflow_dir / 'cluster_logs').mkdir(parents=True, exist_ok=True)
             
             # Copy resource files
-            for filename in ['Snakefile', 'cluster.yaml']:
+            for filename in ['Snakefile']:  # Removed cluster.yaml as it's optional
                 try:
                     src_path = self._find_resource_file(filename)
                     dst_path = self.workflow_dir / filename
@@ -79,20 +180,27 @@ class SnakemakeWorkflow:
                 except Exception as e:
                     raise WorkflowError(f"Error copying {filename}: {str(e)}")
 
+            # Only copy cluster.yaml if it exists in current directory
+            cluster_yaml = Path('cluster.yaml')
+            if cluster_yaml.exists():
+                dst_path = self.workflow_dir / 'cluster.yaml'
+                shutil.copy2(cluster_yaml, dst_path)
+                logger.debug(f"Copied local cluster.yaml to {dst_path}")
+
             # Generate workflow config
             self._generate_config()
             
             # Create required directories
-            for dirname in ['cfg', 'bins', 'segs', 'temp', 'segcfg', 'readpos']:
+            for dirname in ['cfg', 'bins', 'temp', 'segcfg', 'readpos']:
                 (self.outdir / dirname).mkdir(exist_ok=True)
                 
             logger.info(f"Workflow setup completed in {self.workflow_dir}")
                 
         except Exception as e:
             raise WorkflowError(f"Error setting up workflow: {str(e)}")
-
-    def run(self, cluster_mode: bool = False) -> None:
-        """Run Snakemake workflow"""
+    
+    def run_normalization(self, cluster_mode: bool = False) -> None:
+        """Run normalization steps in Snakemake workflow"""
         if not self.workflow_dir.exists():
             raise WorkflowError("Workflow directory not found. Did you run setup_workflow()?")
 
@@ -111,8 +219,9 @@ class SnakemakeWorkflow:
             f'--directory={self.outdir}',
             f'--snakefile={snakefile_path}',
             f'--configfile={self.workflow_dir}/config.yaml',
-            '--stats', str(self.snakemake_log_dir / 'stats.json'),
-            '--nolock'
+            f'--stats={self.snakemake_log_dir}/stats.json',
+            '--nolock',
+            'all'  # Run all targets (which is just normalization now)
         ]
 
         if cluster_mode:
@@ -137,7 +246,7 @@ class SnakemakeWorkflow:
         if self.config.get('dry_run', False):
             cmd.append('--dry-run')
 
-        logger.info(f"Running Snakemake workflow from {self.workflow_dir}")
+        logger.info(f"Running normalization workflow from {self.workflow_dir}")
         logger.debug(f"Command: {' '.join(cmd)}")
 
         with working_directory(self.workflow_dir):
@@ -154,9 +263,6 @@ class SnakemakeWorkflow:
                 if result.stderr:
                     logger.warning(f"Snakemake stderr:\n{result.stderr}")
 
-                if not self.validate_outputs() and not self.config.get('dry_run', False):
-                    raise WorkflowError("Workflow completed but expected outputs are missing")
-
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
                     f"Snakemake workflow failed with exit code {e.returncode}\n"
@@ -164,109 +270,8 @@ class SnakemakeWorkflow:
                     f"stderr: {e.stderr}"
                 )
 
-    def validate_outputs(self) -> bool:
-        """
-        Validate that expected output files exist
-        
-        Returns
-        -------
-        bool
-            True if all expected outputs exist, False otherwise
-        """
-        # Get cell list from metadata
-        metadata = Path(self.config['metadata_path'])
-        if not metadata.exists():
-            raise WorkflowError(f"Metadata file not found: {metadata}")
-            
-        try:
-            import pandas as pd
-            cells_df = pd.read_csv(metadata, sep='\t')
-            if 'singlecell' in cells_df.columns:
-                cells_df = cells_df.query('singlecell=="Y"')
-            cells = cells_df['bamID'].tolist()
-        except Exception as e:
-            raise WorkflowError(f"Error reading metadata file: {e}")
-
-        # Define expected outputs for each cell
-        missing_files = []
-        
-        # Check bins directory
-        for cell in cells:
-            bin_dir = self.outdir / 'bins' / cell
-            for chrom in self.config.get('chrom_list', range(1, 23)):
-                bin_file = bin_dir / f'{chrom}.bin'
-                if not bin_file.exists():
-                    missing_files.append(bin_file)
-
-        # Check segmentation directory
-        for cell in cells:
-            seg_dir = self.outdir / 'segs' / cell
-            for lambda_val in self.config.get('lambda_range', [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]):
-                seg_file = seg_dir / f'lambda{lambda_val}.cnv'
-                if not seg_file.exists():
-                    missing_files.append(seg_file)
-
-        if missing_files:
-            logger.debug("Missing output files:")
-            for f in missing_files[:10]:  # Show first 10 missing files
-                logger.debug(f"  {f}")
-            if len(missing_files) > 10:
-                logger.debug(f"  ... and {len(missing_files) - 10} more")
-            return False
-            
-        return True
-
-    def _generate_config(self) -> None:
-        """Generate Snakemake config.yaml from package config"""
-        try:
-            # Required configuration fields
-            required_fields = [
-                'fasta_folder', 
-                'mappability_folder_stem',
-                'metadata_path', 
-                'bicseq_norm', 
-                'bicseq_seg'
-            ]
-            
-            # Validate required fields
-            for field in required_fields:
-                if field not in self.config:
-                    raise WorkflowError(f"Missing required configuration field: {field}")
-            
-            # Create Snakemake configuration
-            snakemake_config = {
-                'outdir': str(self.outdir),
-                'fasta_folder': self.config['fasta_folder'],
-                'mappability_folder_stem': self.config['mappability_folder_stem'],
-                'metadata_path': self.config['metadata_path'],
-                'bicseq_norm': self.config['bicseq_norm'],
-                'bicseq_seg': self.config['bicseq_seg'],
-                'binsize': self.config.get('binsize', 500000),
-                'chrom_list': self.config.get('chrom_list', 
-                    [str(i) for i in range(1, 23)] + ['X', 'Y']),
-                'lambda_range': self.config.get('lambda_range', 
-                    [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048])
-            }
-            
-            # Write configuration to file
-            config_path = self.workflow_dir / 'config.yaml'
-            with open(config_path, 'w') as f:
-                yaml.dump(snakemake_config, f, default_flow_style=False)
-                
-            logger.debug(f"Generated Snakemake config at {config_path}")
-                
-        except Exception as e:
-            raise WorkflowError(f"Error generating config file: {str(e)}")
-
     def clean(self, pattern: Optional[str] = None) -> None:
-        """
-        Clean workflow output files
-        
-        Parameters
-        ----------
-        pattern : str, optional
-            Specific pattern of files to clean (e.g., "*.temp")
-        """
+        """Clean workflow output files"""
         try:
             if pattern:
                 files = list(self.workflow_dir.glob(pattern))
@@ -287,29 +292,3 @@ class SnakemakeWorkflow:
             
         except Exception as e:
             raise WorkflowError(f"Error cleaning workflow directory: {str(e)}")
-
-
-def run_segmentation_workflow(
-    config: Dict[str, Any],
-    cluster_mode: bool = False,
-    clean: bool = False
-) -> None:
-    """
-    Run segmentation using Snakemake workflow
-    
-    Parameters
-    ----------
-    config : Dict[str, Any]
-        Configuration dictionary
-    cluster_mode : bool
-        Whether to run in cluster mode
-    clean : bool
-        Whether to clean previous workflow files before running
-    """
-    workflow = SnakemakeWorkflow(config)
-    
-    if clean:
-        workflow.clean()
-        
-    workflow.setup_workflow()
-    workflow.run(cluster_mode=cluster_mode)

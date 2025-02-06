@@ -9,10 +9,10 @@ from .pipeline import (
     run_snp_calling,
     run_phasing,
     run_ado_analysis,
+    run_normalization,
     run_segmentation,
     run_cnv_calling
 )
-
 from .pipeline.snp_calling import SNPCallingError
 
 # Initialize logger
@@ -34,7 +34,7 @@ def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
         raise click.BadParameter(f"Invalid configuration file: {e}")
 
 @click.group()
-@click.version_option(version=__version__)
+@click.version_option(version=__version__, message="HiScanner version %(version)s")
 @click.option('--config', 
               type=click.Path(exists=True), 
               callback=validate_config_file,
@@ -56,9 +56,10 @@ def cli(config: Optional[Path], debug: bool):
             logger.error(f"Configuration error: {e}")
             sys.exit(1)
 
+
 @cli.command()
 @click.option('--step', 
-              type=click.Choice(['snp', 'phase', 'ado', 'segment', 'cnv', 'all']), 
+              type=click.Choice(['snp', 'phase', 'ado', 'normalize', 'segment', 'cnv', 'all']), 
               default='all',
               help='Pipeline step to run')
 @click.option('--use-cluster',
@@ -68,15 +69,12 @@ def cli(config: Optional[Path], debug: bool):
 def run(step: str, use_cluster: bool):
     """Run the HiScanner pipeline."""
     try:
-        # Check if configuration has been loaded
-        if not config.config:  # Access the internal config dictionary
-            # If no config has been loaded, try to load from default location
+        if not config.config:
             if Path('config.yaml').exists():
                 config.update_from_file('config.yaml')
             else:
                 raise ConfigError("No configuration file found. Please provide a config file using --config option")
         
-        # Add cluster mode to config
         config.config['use_cluster'] = use_cluster
         
         logger.debug(f"Loaded configuration: {config.config}")
@@ -85,24 +83,27 @@ def run(step: str, use_cluster: bool):
             'snp': run_snp_calling,
             'phase': run_phasing,
             'ado': run_ado_analysis,
-            'segment': run_segmentation,
+            'normalize': run_normalization,  # Use the normalization function
+            'segment': run_segmentation,  # Use the segmentation_only function
             'cnv': run_cnv_calling
         }
         
         if step == 'all':
-            for step_name, step_func in steps.items():
+            logger.info("Running complete pipeline...")
+            for step_name in ['snp', 'phase', 'ado', 'normalize', 'segment', 'cnv']:
                 logger.info(f"Running {step_name} step...")
-                step_func(config.config)  # Pass the config dictionary
+                steps[step_name](config.config)
         else:
             logger.info(f"Running {step} step...")
-            steps[step](config.config)  # Pass the config dictionary
+            steps[step](config.config)
             
         logger.info("✓ Pipeline completed successfully")
         
     except Exception as e:
         logger.error(f"Error running pipeline: {e}")
         sys.exit(1)
-        
+
+
 @cli.command()
 @click.argument('config_path', 
                 type=click.Path(exists=True),
@@ -128,7 +129,7 @@ def validate(config_path: Optional[str]):
         config.create_output_dirs()
         logger.info("✓ Output directories can be created")
         
-        # Validate SCAN2 outputs
+        # Validate SCAN2 outputs if not in RDR-only mode
         if not config.config.get('rdr_only', False):
             from .pipeline.snp_calling import validate_scan2_output
             scan2_dir = Path(config.config['scan2_output'])
@@ -155,7 +156,7 @@ def validate(config_path: Optional[str]):
     except Exception as e:
         logger.error(f"Validation error: {e}")
         sys.exit(1)
-        
+
 @cli.command()
 @click.option('--all', 'clean_all', is_flag=True, help='Remove all temporary and output files')
 def clean(clean_all: bool):
@@ -192,7 +193,7 @@ def clean(clean_all: bool):
     except Exception as e:
         logger.error(f"Error cleaning directories: {e}")
         sys.exit(1)
-        
+
 @cli.command()
 @click.option('--output', 
               type=click.Path(), 

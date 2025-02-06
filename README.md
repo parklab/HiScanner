@@ -40,25 +40,35 @@ We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
 ## Required External Files: 
 
 ### 1) Mappability Track
+<details>
+<summary>hg19/GRCh37</summary>
 
-Download mappability tracks for the reference genome you are using. Here we provide mappability tracks for hg19/GRCh37 and GRCh38.
- - hg19/GRCh37 (100bp)
 ```bash
+# 100mer:
 wget https://www.math.pku.edu.cn/teachers/xirb/downloads/software/BICseq2/Mappability/hg19CRG.100bp.tar.gz --no-check-certificate
 tar -xvzf hg19CRG.100bp.tar.gz
 ```
+</details>
 
-- GRCh38 (150bp): Coming soon
+<details>
+<summary>hg38/GRCh38 (150bp)</summary>
+```bash
+150bp: Coming soon
+```
+</details>
 
+<details>
+<summary>Other reference genomes: instructions on custom track generation</summary>
 
-- Custom Track Generation:
 For other genomes/read length configurations, follow instructions at [CGAP Annotations](https://cgap-annotations.readthedocs.io/en/latest/bic-seq2_mappability.html) to generate mappability tracks.
+</details>
 
-*Important Notes on Read Length Compatibility*
+<details>
+<summary>**Note these guidelines when choosing mappability tracks:**</summary>
 
 - **Shorter mappability track (e.g., 100bp) with longer reads (e.g., 150bp)**: Valid but conservative (some uniquely mappable regions may be missed)
 - **Longer mappability track (e.g., 150bp) with shorter reads (e.g., 100bp)**: Not valid, will cause false positives
-
+</details>
 
 ### 2) Reference Genome
 We require the reference genome fasta to be split into chromosomes, to allow for parallel processing. You can use the following command to split the reference genome:
@@ -125,68 +135,107 @@ If you have already run SCAN2, ensure you have:
 The expected location is `scan2_out/` in your project directory.
 
 #### Steps 2-5: HiScanner Pipeline
+<details>
+<summary>1. Initialize HiScanner project</summary>
 
-1. Initialize HiScanner project:
 ```bash
 hiscanner init --output ./my_project
 cd my_project
 ```
+</details>
 
-2. Edit config.yaml with your paths and parameters.
+<details>
+<summary>2. Edit config.yaml</summary>
 
-3. Prepare metadata file which must contain the following columns:
+Edit with your paths and parameters
+</details>
+
+<details>
+<summary>3. Prepare metadata file</summary>
+
+Must contain the following columns:
 ```
 bamID    bam    singlecell
 bulk1    /path/to/bulk.bam    N
 cell1    /path/to/cell1.bam   Y 
 cell2    /path/to/cell2.bam   Y
 ```
+</details>
 
-4. Validate the configuration:
+<details>
+<summary>4. Validate configuration</summary>
+
 ```bash
 hiscanner --config config.yaml validate
 ```
+</details>
 
-5. Run the pipeline:
+<details>
+<summary>5. Run the pipeline</summary>
+
 ```bash
 hiscanner --config config.yaml run --step snp      # Check SCAN2 results
 hiscanner --config config.yaml run --step phase    # Process SCAN2 results
 hiscanner --config config.yaml run --step ado      # ADO analysis to identify optimal bin size
-hiscanner --config config.yaml run --step segment  # Normalization and Segmentation
+hiscanner --config config.yaml run --step normalize # Normalize read depth ratios
+hiscanner --config config.yaml run --step segment  # Segmentation
 hiscanner --config config.yaml run --step cnv      # CNV calling
 
 # Or run all steps at once:
 hiscanner --config config.yaml run --step all
 ```
+</details>
+
+For ```normalize``` (the most time-consuming step), we provide an option to run with cluster, e.g., 
+```bash
+hiscanner --config config.yaml run --step normalize --use-cluster
+```
 
 ### Option 2: RDR-only Pipeline
+<details>
+<summary>1. Initialize project</summary>
 
-1. Initialize project:
 ```bash
 hiscanner init --output ./my_project
 cd my_project
 ```
+</details>
 
-2. Edit config.yaml:
+<details>
+<summary>2. Edit config.yaml</summary>
+
 - Set `rdr_only: true`
 - Configure paths and parameters
+</details>
 
-3. Prepare metadata file which must contain the following columns (bulk samples are not required):
+<details>
+<summary>3. Prepare metadata file</summary>
+
+Must contain the following columns (bulk samples are not required):
 ```
 bamID    bam    singlecell
 cell1    /path/to/cell1.bam   Y 
 cell2    /path/to/cell2.bam   Y
 ```
+</details>
 
-4. Validate the configuration:
+<details>
+<summary>4. Validate configuration</summary>
+
 ```bash
 hiscanner --config config.yaml validate
+```
+</details>
 
-5. Run the pipeline:
+<details>
+<summary>5. Run the pipeline</summary>
+
 ```bash
+hiscanner --config config.yaml run --step normalize # Normalize read depth ratios
 hiscanner --config config.yaml run --step segment  # Segmentation
 hiscanner --config config.yaml run --step cnv      # CNV calling
 ```
+</details>
 
 
 ## Output Structure

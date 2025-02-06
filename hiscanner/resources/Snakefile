@@ -1,3 +1,4 @@
+# Snakefile
 import pandas as pd
 import os
 from pathlib import Path
@@ -9,70 +10,92 @@ outdir = Path(config["outdir"])
 sample_ids = samples["bamID"].tolist()
 chrom_list = config["chrom_list"]
 
-# Final output files
+def check_bins_exist(sample, chrom_list):
+    """Check if bin files exist and are non-empty for a sample."""
+    bins_dir = outdir / "bins" / sample
+    if not bins_dir.exists():
+        return False
+    
+    for chrom in chrom_list:
+        bin_file = bins_dir / f"{chrom}.bin"
+        if not bin_file.exists() or bin_file.stat().st_size == 0:
+            return False
+    return True
+
+# Define outputs for normalization
+def get_normalization_output():
+    """Get output files for normalization step."""
+    outputs = []
+    # Config files
+    outputs.extend([
+        expand(str(outdir / "cfg/{sample}.cfg"), sample=sample_ids),
+        expand(str(outdir / "segcfg/{sample}.seg.cfg"), sample=sample_ids)
+    ])
+    # Read positions
+    outputs.extend([
+        expand(str(outdir / "readpos/{sample}/{chrom}.readpos.seq"), 
+               sample=sample_ids, chrom=chrom_list)
+    ])
+    # Binned data
+    outputs.extend([
+        expand(str(outdir / "bins/{sample}/{chrom}.bin"), 
+               sample=sample_ids, chrom=chrom_list)
+    ])
+    return outputs
+
+# Default rule - run normalization
 rule all:
     input:
-        expand(str(outdir / "readpos/{sample}/{chrom}.readpos.seq"), 
-               sample=sample_ids, chrom=chrom_list),
-        expand(str(outdir / "bins/{sample}/{chrom}.bin"), 
-               sample=sample_ids, chrom=chrom_list),
-        expand(str(outdir / "segs/{sample}/lambda{lambda_value}.cnv"), 
-               sample=sample_ids, lambda_value=config["lambda_range"])
+        get_normalization_output()
 
 # Create configuration files
 rule create_config_files:
     output:
-        cfg_files=expand(str(outdir / "cfg/{sample}.cfg"), sample=sample_ids),
-        segcfg_files=expand(str(outdir / "segcfg/{sample}.seg.cfg"), sample=sample_ids)
+        cfg=str(outdir / "cfg/{sample}.cfg"),
+        segcfg=str(outdir / "segcfg/{sample}.seg.cfg")
     run:
-        for bamID, bam in samples[["bamID", "bam"]].values:
-            # Create cfg file
-            cfg_data = []
-            for chrom in chrom_list:
-                cfg_data.append([
-                    chrom,
-                    f"{config['fasta_folder']}/{chrom}.fasta",
-                    f"{config['mappability_folder_stem']}chr{chrom}.txt",
-                    str(outdir / f"readpos/{bamID}/{chrom}.readpos.seq"),
-                    str(outdir / f"bins/{bamID}/{chrom}.bin")
-                ])
-            
-            cfg_df = pd.DataFrame(
-                cfg_data, 
-                columns=['chrom_name', 'fa_file', 'mappability', 
-                        'readPosFile', 'bin_file_normalized']
-            )
-            cfg_df.to_csv(outdir / f"cfg/{bamID}.cfg", 
-                         index=None, sep='\t')
-            
-            # Create seg.cfg file
-            segcfg_data = [
-                [chrom, str(outdir / f"bins/{bamID}/{chrom}.bin")]
-                for chrom in chrom_list
-            ]
-            
-            segcfg_df = pd.DataFrame(
-                segcfg_data,
-                columns=['chromName', 'binFileNorm']
-            )
-            segcfg_df.to_csv(outdir / f"segcfg/{bamID}.seg.cfg", 
-                            index=None, sep='\t')
+        # Create cfg file for normalization
+        cfg_data = []
+        for chrom in chrom_list:
+            cfg_data.append([
+                chrom,
+                f"{config['fasta_folder']}/{chrom}.fasta",
+                f"{config['mappability_folder_stem']}chr{chrom}.txt",
+                str(outdir / f"readpos/{wildcards.sample}/{chrom}.readpos.seq"),
+                str(outdir / f"bins/{wildcards.sample}/{chrom}.bin")
+            ])
+        pd.DataFrame(
+            cfg_data, 
+            columns=['chrom_name', 'fa_file', 'mappability', 
+                    'readPosFile', 'bin_file_normalized']
+        ).to_csv(output.cfg, index=None, sep='\t')
 
-# Extract read positions
+        # Create seg.cfg file for segmentation
+        segcfg_data = [
+            [chrom, str(outdir / f"bins/{wildcards.sample}/{chrom}.bin")]
+            for chrom in chrom_list
+        ]
+        pd.DataFrame(
+            segcfg_data,
+            columns=['chromName', 'binFileNorm']
+        ).to_csv(output.segcfg, index=None, sep='\t')
+
+# Extract read positions from BAM files
 rule get_read_pos:
     input:
         bam=lambda wildcards: samples.set_index("bamID").loc[wildcards.sample, "bam"]
     output:
         readpos=str(outdir / "readpos/{sample}/{chrom}.readpos.seq")
+    log:
+        str(outdir / "logs/get_read_pos_{sample}_{chrom}.log")
     shell:
         """
         mkdir -p $(dirname {output.readpos})
         samtools view -q 30 -F 1284 {input.bam} {wildcards.chrom} | \
-            perl -ane 'print $F[3], "\\n";' > {output.readpos}
+            perl -ane 'print $F[3], "\\n";' > {output.readpos} 2> {log}
         """
 
-# In hiscanner/resources/Snakefile
-
+# Run normalization using BICseq
 rule run_bicseq_norm:
     input:
         config=str(outdir / "cfg/{sample}.cfg"),
@@ -92,7 +115,9 @@ rule run_bicseq_norm:
         bicseq_norm=config["bicseq_norm"],
         read_length=config.get("read_length", 150),  
         fragment_size=config.get("fragment_size", 300),  
-        tmp_dir=str(outdir / "temp") 
+        tmp_dir=str(outdir / "temp")
+    log:
+        str(outdir / "logs/bicseq_norm_{sample}.log")
     shell:
         """
         mkdir -p {params.tmp_dir}
@@ -102,30 +127,5 @@ rule run_bicseq_norm:
             -p=0.0001 \
             --tmp={params.tmp_dir} \
             {input.config} \
-            {output.temp}
-        """
-        
-        
-# Run segmentation
-rule run_segmentation:
-    input:
-        segcfg=str(outdir / "segcfg/{sample}.seg.cfg"),
-        bins=lambda wildcards: expand(
-            str(outdir / "bins/{sample}/{chrom}.bin"),
-            sample=[wildcards.sample],
-            chrom=chrom_list
-        )
-    output:
-        cnv=str(outdir / "segs/{sample}/lambda{lambda_value}.cnv")
-    params:
-        bicseq_seg=config["bicseq_seg"]
-    shell:
-        """
-        mkdir -p $(dirname {output.cnv})
-        {params.bicseq_seg} \
-            --lambda={wildcards.lambda_value} \
-            --bootstrap \
-            --detail \
-            {input.segcfg} \
-            {output.cnv}
+            {output.temp} 2> {log}
         """
