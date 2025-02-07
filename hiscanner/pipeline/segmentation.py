@@ -53,7 +53,6 @@ def run_single_sample_segmentation(
     config: Dict[str, Any],
     lambda_value: int
 ) -> None:
-    """Run segmentation for a single cell at specified lambda value."""
     try:
         outdir = Path(config['outdir'])
         segcfg_file = outdir / 'segcfg' / f'{cell}.seg.cfg'
@@ -220,7 +219,7 @@ def combine_multisample_results(
         # Get chromosome list and cell list
         chrom_list = config.get('chrom_list', [str(i) for i in range(1, 23)])
         metadata = pd.read_csv(config['metadata_path'], sep='\t')
-        cells = metadata['bamID'].tolist()
+        cells = metadata.query('singlecell=="Y"')['bamID'].tolist()
         
         # Collect segments from all chromosomes
         seg_all = []
@@ -267,7 +266,7 @@ def run_segmentation(config: Dict[str, Any]) -> None:
         
         # Get cell list from metadata
         metadata = pd.read_csv(config['metadata_path'], sep='\t')
-        cells = metadata['bamID'].tolist()
+        cells = metadata.query('singlecell=="Y"')['bamID'].tolist()
         
         # Set up output directories
         outdir = Path(config['outdir'])

@@ -14,7 +14,6 @@ class WorkflowError(Exception):
 
 @contextlib.contextmanager
 def working_directory(path):
-    """Context manager for changing directory with safe return"""
     prev_cwd = Path.cwd()
     os.chdir(path)
     try:

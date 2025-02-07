@@ -6,22 +6,11 @@ from ..logger import logger
 from .workflow import SnakemakeWorkflow, WorkflowError
 
 class NormalizationError(Exception):
-    """Custom exception for normalization errors"""
     pass
 
 def validate_normalization_inputs(config: Dict[str, Any]) -> None:
     """
     Validate inputs required for normalization step.
-    
-    Parameters
-    ----------
-    config : Dict[str, Any]
-        Pipeline configuration
-        
-    Raises
-    ------
-    NormalizationError
-        If required inputs are missing or invalid
     """
     required_params = [
         'bicseq_norm',
@@ -153,7 +142,7 @@ def check_normalization_results(config: Dict[str, Any]) -> bool:
             
         # Get cell list from metadata
         metadata = pd.read_csv(config['metadata_path'], sep='\t')
-        cells = metadata['bamID'].tolist()
+        cells = metadata.query('singlecell=="Y"')['bamID'].tolist()
         chroms = config.get('chrom_list', [str(i) for i in range(1, 23)])
         
         # Check if all expected bin files exist and are non-empty

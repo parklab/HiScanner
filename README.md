@@ -166,7 +166,7 @@ cell2    /path/to/cell2.bam   Y
 <summary>4. Validate configuration</summary>
 
 ```bash
-hiscanner --config config.yaml validate
+hiscanner validate
 ```
 </details>
 
@@ -174,15 +174,15 @@ hiscanner --config config.yaml validate
 <summary>5. Run the pipeline</summary>
 
 ```bash
-hiscanner --config config.yaml run --step snp      # Check SCAN2 results
-hiscanner --config config.yaml run --step phase    # Process SCAN2 results
-hiscanner --config config.yaml run --step ado      # ADO analysis to identify optimal bin size
-hiscanner --config config.yaml run --step normalize # Normalize read depth ratios
-hiscanner --config config.yaml run --step segment  # Segmentation
-hiscanner --config config.yaml run --step cnv      # CNV calling
+hiscanner run --step snp      # Check SCAN2 results
+hiscanner run --step phase    # Process SCAN2 results
+hiscanner run --step ado      # ADO analysis to identify optimal bin size
+hiscanner run --step normalize # Normalize read depth ratios
+hiscanner run --step segment  # Segmentation
+hiscanner run --step cnv      # CNV calling
 
 # Or run all steps at once:
-hiscanner --config config.yaml run --step all
+hiscanner run --step all
 ```
 </details>
 
@@ -223,7 +223,7 @@ cell2    /path/to/cell2.bam   Y
 <summary>4. Validate configuration</summary>
 
 ```bash
-hiscanner --config config.yaml validate
+hiscanner validate
 ```
 </details>
 
@@ -231,9 +231,9 @@ hiscanner --config config.yaml validate
 <summary>5. Run the pipeline</summary>
 
 ```bash
-hiscanner --config config.yaml run --step normalize # Normalize read depth ratios
-hiscanner --config config.yaml run --step segment  # Segmentation
-hiscanner --config config.yaml run --step cnv      # CNV calling
+hiscanner run --step normalize # Normalize read depth ratios
+hiscanner run --step segment  # Segmentation
+hiscanner run --step cnv      # CNV calling
 ```
 </details>
 
@@ -252,7 +252,7 @@ hiscanner_output/
 ## Cleaning Up
 HiScanner creates several temporary directories during analysis. You can clean these up using the clean command:
 ```bash
-hiscanner --config config.yaml clean
+hiscanner clean
 ```
 
 ## Troubleshooting

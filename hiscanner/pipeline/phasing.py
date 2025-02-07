@@ -9,7 +9,6 @@ from .snp_calling import SNPCallingError
 import numpy as np
 import gzip
 class PhasingError(Exception):
-    """Custom exception for phasing errors"""
     pass
 
 def validate_inputs(config: Dict[str, Any]) -> Dict[str, Path]:

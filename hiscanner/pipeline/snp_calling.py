@@ -185,9 +185,6 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
     """
     Prepare SNP calling results from existing SCAN2 output.
     
-    This function validates and prepares SCAN2 results for downstream analysis,
-    rather than running SCAN2 itself which should be done separately.
-    
     Parameters
     ----------
     config : Dict[str, Any]

@@ -288,18 +288,6 @@ def get_peak(values: np.ndarray) -> float:
 def get_lnvar(x: np.ndarray, x_bar: np.ndarray) -> float:
     """
     Calculate log variance.
-    
-    Parameters
-    ----------
-    x : np.ndarray
-        Data values
-    x_bar : np.ndarray
-        Mean values
-        
-    Returns
-    -------
-    float
-        Log variance
     """
     n = x.shape[0]
     lnvar = np.log(np.sum((x - x_bar)**2)/n)
@@ -308,18 +296,6 @@ def get_lnvar(x: np.ndarray, x_bar: np.ndarray) -> float:
 def get_var(x: np.ndarray, x_bar: np.ndarray) -> float:
     """
     Calculate variance.
-    
-    Parameters
-    ----------
-    x : np.ndarray
-        Data values
-    x_bar : np.ndarray
-        Mean values
-        
-    Returns
-    -------
-    float
-        Variance
     """
     n = x.shape[0]
     var = np.sum((x - x_bar)**2)/n

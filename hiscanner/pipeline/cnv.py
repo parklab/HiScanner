@@ -35,7 +35,6 @@ from ..utils.postprocessing_rdr import (
 def process_cell(cell: str,
                 config: Dict[str, Any],
                 chroms: List[str]) -> None:
-    """Process a single cell for CNV calling."""
     try:
         final_call_dir = Path(config['outdir']) / 'final_calls'
         logger.info(f'Processing cell {cell}')

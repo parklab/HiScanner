@@ -95,14 +95,6 @@ def get_logger(name: str = "hiscanner") -> logging.Logger:
     """
     return logging.getLogger(name)
 
-# Example usage in other modules:
-# from .logger import logger
-# logger.debug("Debug message")
-# logger.info("Info message")
-# logger.warning("Warning message")
-# logger.error("Error message")
-# logger.critical("Critical message")
-
 if __name__ == "__main__":
     # Example usage and testing
     logger = setup_logging(log_level="DEBUG")

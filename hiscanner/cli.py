@@ -30,7 +30,6 @@ def find_config_file() -> Optional[Path]:
     return None
 
 def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
-    """Validate configuration file exists and is readable."""
     if value is None:
         # If no config provided via --config, look in standard locations
         config_path = find_config_file()
