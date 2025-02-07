@@ -7,6 +7,8 @@ HiScanner is a python package for high-resolution single-cell copy number analys
 1. **Standard Pipeline** (RDR + BAF): Full analysis using both read depth ratios (RDR) and B-allele frequencies (BAF)
 2. **RDR-only Pipeline**: Simplified analysis using only read depth ratios
 
+We provide a demo dataset and tutorial to help you get started. After installation, see https://github.com/parklab/hiscanner_demo for instructions.
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -41,21 +43,19 @@ We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
 
 ### 1) Mappability Track
 <details>
-<summary>hg19/GRCh37</summary>
+<summary>hg19/GRCh37 (100mer) </summary>
 
 ```bash
-# 100mer:
 wget https://www.math.pku.edu.cn/teachers/xirb/downloads/software/BICseq2/Mappability/hg19CRG.100bp.tar.gz --no-check-certificate
 tar -xvzf hg19CRG.100bp.tar.gz
 ```
 </details>
 
 <details>
-<summary>hg38/GRCh38 (150bp)</summary>
+<summary>hg38/GRCh38 (150mer)</summary>
 
 Download from: https://doi.org/10.6084/m9.figshare.28370357.v1
 
-<iframe src="https://widgets.figshare.com/articles/28370357/embed?show_title=1" width="568" height="351" allowfullscreen frameborder="0"></iframe>
 </details>
 
 <details>
