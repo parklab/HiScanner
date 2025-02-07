@@ -1,3 +1,2 @@
-# hiscanner/__version__.py
-VERSION = (0, 2, 'b5')
+VERSION = (0, 2, 'b7')
 __version__ = '.'.join(map(str, VERSION))

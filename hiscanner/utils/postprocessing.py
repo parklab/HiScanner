@@ -201,7 +201,6 @@ def postprocess(seg_path: str, data_path: str, MAX_WGD: int = 1) -> Tuple[pd.Dat
     # Annotate segments
     seg_all = annotate_seg(seg_all, cell_data)
     seg_all = seg_all[seg_all.NBIN > 2]
-    
     # Annotate cell data with segment mean
     cell_data, k = annotate_mean(cell_data, seg_all)
     cell_data = cell_data[~cell_data.RDR_MEAN.isna()]

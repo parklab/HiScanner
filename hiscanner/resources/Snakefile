@@ -7,7 +7,7 @@ from pathlib import Path
 configfile: "config.yaml"
 samples = pd.read_csv(config["metadata_path"], sep="\t")
 outdir = Path(config["outdir"])
-sample_ids = samples["bamID"].tolist()
+sample_ids = samples.query('singlecell=="Y"')["bamID"].tolist()
 chrom_list = config["chrom_list"]
 
 def check_bins_exist(sample, chrom_list):

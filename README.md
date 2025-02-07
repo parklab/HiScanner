@@ -52,9 +52,10 @@ tar -xvzf hg19CRG.100bp.tar.gz
 
 <details>
 <summary>hg38/GRCh38 (150bp)</summary>
-```bash
-150bp: Coming soon
-```
+
+Download from: https://doi.org/10.6084/m9.figshare.28370357.v1
+
+<iframe src="https://widgets.figshare.com/articles/28370357/embed?show_title=1" width="568" height="351" allowfullscreen frameborder="0"></iframe>
 </details>
 
 <details>

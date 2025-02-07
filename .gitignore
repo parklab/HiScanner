@@ -15,6 +15,7 @@ eggs/
 # Testing
 .pytest_cache/
 .coverage
+create_mouse_demo/
 
 # IDE and editor files
 .vscode/
