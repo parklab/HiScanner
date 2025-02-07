@@ -117,8 +117,8 @@ def process_cell_results(cell, vaf, cell_dir, config):
     
     if not (cell_dir / 'result_gauss.txt').exists() or config.get('rerun', False):
         anno_df_combined = []
-        
-        for chrom in range(1, 23):
+        chroms = config.get('chrom_list', list(range(1, 23)))
+        for chrom in chroms:
             selected = get_vaf_by_chrom(str(chrom), vaf, 
                         depth_filter=config.get('depth_filter', 5),
                         aggregate_every_k_snp=config.get('aggregate_every_k_snp', False),
