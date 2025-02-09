@@ -81,6 +81,8 @@ def cli(config: Optional[Path], debug: bool):
             logger.error(f"Configuration error: {e}")
             sys.exit(1)
 
+# In hiscanner/cli.py, modify the @cli.command() decorator for the run command:
+
 @cli.command()
 @click.option('--step', 
               type=click.Choice(['snp', 'phase', 'ado', 'normalize', 'segment', 'cnv', 'all']), 
@@ -90,11 +92,16 @@ def cli(config: Optional[Path], debug: bool):
               is_flag=True,
               default=False,
               help='Run pipeline on a cluster using SLURM')
-def run(step: str, use_cluster: bool):
+@click.option('--rerun',
+              is_flag=True,
+              default=False,
+              help='Force rerun of the specified step')
+def run(step: str, use_cluster: bool, rerun: bool):
     """Run the HiScanner pipeline."""
     try:
         ensure_config_loaded()
         config.config['use_cluster'] = use_cluster
+        config.config['rerun'] = rerun  # Add rerun flag to config
         
         logger.debug(f"Loaded configuration: {config.config}")
         
