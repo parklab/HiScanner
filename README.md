@@ -7,7 +7,7 @@ HiScanner is a python package for high-resolution single-cell copy number analys
 1. **Standard Pipeline** (RDR + BAF): Full analysis using both read depth ratios (RDR) and B-allele frequencies (BAF)
 2. **RDR-only Pipeline**: Simplified analysis using only read depth ratios
 
-We provide a demo dataset and tutorial to help you get started. After installation, see https://github.com/parklab/hiscanner_demo for instructions.
+We provide a demo dataset and tutorial to help you get started. After installation, see https://github.com/parklab/hiscanner_demo for instructions. The typical run time for the demo without (`--use-cluster` option) is less than 30 minutes.
 
 ## Table of Contents
 
@@ -27,6 +27,8 @@ conda activate hiscanner_test
 pip install hiscanner --no-cache-dir
 ```
 
+Note that 
+
 Install R and required packages:
 ```bash
 conda install -c conda-forge r-base  
@@ -38,6 +40,13 @@ Install other dependencies:
 conda install -c bioconda snakemake samtools bcftools
 ```
 We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
+
+HiScanner (version 0.2b7) has been tested with Linux distributions:
+- CentOS Linux release 7.9.2009
+- Ubuntu 20.04.6 LTS (GNU/Linux 5.4.0-204-generic x86_64)
+
+The typical installation time is less than 5 minutes.
+
 
 ## Required External Files: 
 

@@ -173,7 +173,6 @@ def postprocess_rdr(seg_path: str,
     return seg_all, seg_all_merged, cell_data
 
 
-
 def infer_ploidy_rdr(cell_data: pd.DataFrame,
                      seg_all: pd.DataFrame,
                      max_wgd: int = 2,
@@ -197,16 +196,38 @@ def infer_ploidy_rdr(cell_data: pd.DataFrame,
     Tuple[List[int], float]
         Copy numbers and gamma value
     """
-    # Find modal RDR value
+    # Find modal RDR value with more robust binning
     rdr_values = cell_data.RDR[~cell_data.RDR.isna()].values
+    if len(rdr_values) == 0:
+        raise ValueError("No valid RDR values found")
+        
+    # Use a more robust method to find the modal RDR
     hist, bin_edges = np.histogram(rdr_values, bins=100)
-    modal_rdr = bin_edges[np.argmax(hist)]
+    modal_idx = np.argmax(hist)
+    modal_rdr = (bin_edges[modal_idx] + bin_edges[modal_idx + 1]) / 2
     
-    # Estimate gamma based on modal RDR
-    gamma_values = [2 * t / modal_rdr for t in range(1, max_wgd + 1)]
+    # Add safety check for modal_rdr
+    if modal_rdr <= 0:
+        logger.warning("Modal RDR is zero or negative, using mean RDR instead")
+        modal_rdr = np.mean(rdr_values)
+        if modal_rdr <= 0:
+            raise ValueError("Unable to determine valid RDR scaling factor")
+    
+    # Calculate gamma values with safety checks
+    gamma_values = []
+    for t in range(1, max_wgd + 1):
+        gamma = 2 * t / modal_rdr
+        if np.isfinite(gamma):  # Only include finite values
+            gamma_values.append(gamma)
+    
+    if not gamma_values:
+        raise ValueError("No valid gamma values could be calculated")
     
     if restrict_gamma:
         gamma_values = [g for g in gamma_values if 1.5 <= g <= 3.0]
+        if not gamma_values:
+            logger.warning("No gamma values within restricted range, using unrestricted values")
+            gamma_values = [2 * t / modal_rdr for t in range(1, max_wgd + 1)]
     
     # Select gamma that minimizes variance
     min_var = float('inf')
@@ -223,4 +244,7 @@ def infer_ploidy_rdr(cell_data: pd.DataFrame,
             best_gamma = gamma
             best_cn = cn.tolist()
     
+    if best_cn is None or best_gamma is None:
+        raise ValueError("Failed to determine copy numbers and gamma")
+        
     return best_cn, best_gamma
