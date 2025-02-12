@@ -58,7 +58,7 @@ def run_single_sample_segmentation(
         segcfg_file = outdir / 'segcfg' / f'{cell}.seg.cfg'
         segs_dir = outdir / 'segs' / cell
         segs_dir.mkdir(parents=True, exist_ok=True)
-        
+        temp_dir = outdir / 'temp' 
         output_file = segs_dir / f'lambda{lambda_value}.cnv'
         log_file = outdir / 'logs' / f'segmentation_{cell}_lambda{lambda_value}.log'
         
@@ -66,12 +66,13 @@ def run_single_sample_segmentation(
         if output_file.exists() and not config.get('rerun', False):
             logger.debug(f"Skipping existing segmentation for {cell} at lambda={lambda_value}")
             return
-            
+        
         cmd = [
             config['bicseq_seg'],
             f"--lambda={lambda_value}",
             "--bootstrap",
             "--detail",
+            f"--tmp={temp_dir}",
             str(segcfg_file),
             str(output_file)
         ]
