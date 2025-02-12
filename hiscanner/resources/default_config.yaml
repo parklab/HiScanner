@@ -30,7 +30,6 @@ k: 5                    # Number of SNPs to aggregate when aggregate_every_k_snp
 keep_raw_files: false    # Whether to keep intermediate raw files (default: false)
 rerun: false            # Force rerun of existing results (default: false)
 keep_temp_files: false  # Keep temporary files from multisample segmentation
-cell_groups: []         # List of cells to analyze. If empty, all cells in metadata will be used as one group
 
 
 # Cluster options
