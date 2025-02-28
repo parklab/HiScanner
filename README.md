@@ -85,7 +85,7 @@ We require the reference genome fasta to be split into chromosomes, to allow for
 ```bash
 samtools faidx /path/to/reference.fasta
 mkdir /path/to/reference/split
-awk '{print $1}' /path/to/reference.fasta.fai | xargs -I {} samtools faidx /path/to/reference.fasta {} > /path/to/reference/split/{}.fasta
+awk '{print $1}' /path/to/reference.fasta.fai | xargs -I {} sh -c 'samtools faidx /path/to/reference.fasta {} > /path/to/reference/split/{}.fasta'
 ```
 
 
