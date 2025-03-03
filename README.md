@@ -37,7 +37,7 @@ conda install -c bioconda r-mgcv>=1.8
 
 Install other dependencies:
 ```bash
-conda install -c bioconda snakemake samtools bcftools
+conda install -c bioconda snakemake==7.32.4 samtools bcftools
 ```
 We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
 
