@@ -41,7 +41,7 @@ conda install -c bioconda snakemake==7.32.4 samtools bcftools
 ```
 We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
 
-HiScanner (version 1.0) has been tested with Linux distributions:
+HiScanner (version 1.3) has been tested with Linux distributions:
 - CentOS Linux release 7.9.2009
 - Ubuntu 20.04.6 LTS (GNU/Linux 5.4.0-204-generic x86_64)
 
