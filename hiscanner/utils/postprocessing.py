@@ -25,6 +25,8 @@ def annotate_seg(seg_all: pd.DataFrame, cell_data: pd.DataFrame) -> pd.DataFrame
     pd.DataFrame
         Annotated segmentation data
     """
+    cell_data['CHROM'] = cell_data['CHROM'].astype(str)
+    seg_all['chrom'] = seg_all['chrom'].astype(str)
     rdr_sum, rdr_mean, vaf_mean, vaf_estimate, n_bin = [], [], [], [], []
     
     for _, row in seg_all.iterrows():

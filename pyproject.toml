@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hiscanner"
-version = "1.0"
+version = "1.2"
 description = "High-resolution single-cell copy number analysis."
 authors = ["Yifan Zhao <yifnzhao@gmail.com>"]
 license = "MIT"
@@ -39,6 +39,7 @@ colorlog = ">=6.0.0"
 pyfaidx = ">=0.6.0"
 tqdm = ">=4.62.0"
 joblib = ">=1.0.0"
+snakemake = "==7.32.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.0"

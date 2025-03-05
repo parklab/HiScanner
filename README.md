@@ -41,7 +41,7 @@ conda install -c bioconda snakemake==7.32.4 samtools bcftools
 ```
 We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
 
-HiScanner (version 0.2b7) has been tested with Linux distributions:
+HiScanner (version 1.0) has been tested with Linux distributions:
 - CentOS Linux release 7.9.2009
 - Ubuntu 20.04.6 LTS (GNU/Linux 5.4.0-204-generic x86_64)
 
@@ -268,7 +268,11 @@ hiscanner clean
 ## Troubleshooting
 
 Common issues:
-1. Missing SCAN2 results: Ensure scan2_output directory is correctly specified
+1. Missing SCAN2 results: Ensure scan2_output directory is correctly specified. If the vcf is not zip-compressed, you can use `bgzip` to compress it (in scan2 environment).
+```bash
+bgzip scan2_out/gatk/hc_raw.mmq60.vcf
+tabix -p vcf scan2_out/gatk/hc_raw.mmq60.vcf.gz
+```
 2. File permissions: Check access to BAM files and reference data
 3. Memory issues: Adjust batch_size in config.yaml
 

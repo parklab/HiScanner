@@ -56,17 +56,19 @@ def process_cell(cell: str,
         # Read segments
         logger.info(f'Reading segments for {cell} (lambda={config["lambda_value"]})')
         segdir = Path(config['outdir']) / 'segs'
-        seg_all = pd.read_csv(f'{segdir}/{cell}/lambda{config["lambda_value"]}.cnv',
+        seg_initial = pd.read_csv(f'{segdir}/{cell}/lambda{config["lambda_value"]}.cnv',
             sep='\t'
         )
 
         # Annotate segments
         logger.info('Annotating segments')
-        seg_all = annotate_seg(seg_all, cell_data)
-        seg_all = seg_all[seg_all.NBIN > 2]
+        seg_initial_anno = annotate_seg(seg_initial, cell_data)
+        seg_all = seg_initial_anno[seg_initial_anno.NBIN > 2]
 
         if seg_all.shape[0] == 0:
             logger.warning(f"No segments left for {cell} after filtering!")
+            # save seg_combined
+            seg_initial_anno.to_csv(final_call_dir / f'{cell}_seg_initial_anno.txt', sep='\t', index=False)
             return
 
         # Process bins and segments
