@@ -37,9 +37,9 @@ conda install -c bioconda r-mgcv>=1.8
 
 Install other dependencies:
 ```bash
-conda install -c bioconda snakemake==7.32.4 samtools bcftools
+conda install -c bioconda samtools bcftools
 ```
-We tested with snakemake==7.32.4, samtools==1.15.1, bcftools==1.13.
+We tested with samtools==1.15.1, bcftools==1.13.
 
 HiScanner (version 1.3) has been tested with Linux distributions:
 - CentOS Linux release 7.9.2009
