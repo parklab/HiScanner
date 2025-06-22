@@ -22,24 +22,12 @@ We provide a demo dataset and tutorial to help you get started. After installati
 ### Installation
 ```bash
 # Create new conda environment with all dependencies
-conda create -n hiscanner_test python=3.8
+conda create -n hiscanner_test \
+    -c conda-forge -c bioconda -c defaults \
+    python=3.8 samtools=1.15.1 bcftools=1.13 r-base "r-mgcv>=1.8"
 conda activate hiscanner_test
 pip install hiscanner --no-cache-dir
 ```
-
-Note that 
-
-Install R and required packages:
-```bash
-conda install -c conda-forge r-base  
-conda install -c bioconda r-mgcv>=1.8
-```
-
-Install other dependencies:
-```bash
-conda install -c bioconda samtools bcftools
-```
-We tested with samtools==1.15.1, bcftools==1.13.
 
 HiScanner (version 1.3) has been tested with Linux distributions:
 - CentOS Linux release 7.9.2009
