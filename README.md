@@ -256,15 +256,14 @@ hiscanner clean
 ## Troubleshooting
 
 Common issues:
-1. Missing SCAN2 results: Ensure scan2_output directory is correctly specified. If the vcf is not zip-compressed, you can use `bgzip` to compress it (in scan2 environment).
+1. SCAN2 output formatting issues (hg38 users): Newer SCAN2 versions using Eagle phasing (instead of SHAPEIT) may produce incompatible genotype formatting. Solution: Clean the `GT` field in phased_hets.vcf.gz to keep only the phase information (e.g., "0|1", instead of "0|1:5,6:7,8").
+2. Missing SCAN2 results: Ensure scan2_output directory is correctly specified. If the vcf is not zip-compressed, you can use `bgzip` to compress it (in scan2 environment).
 ```bash
 bgzip scan2_out/gatk/hc_raw.mmq60.vcf
 tabix -p vcf scan2_out/gatk/hc_raw.mmq60.vcf.gz
 ```
-2. File permissions: Check access to BAM files and reference data
-3. Memory issues: Adjust batch_size in config.yaml
-
-For more detailed information, check the log files in hiscanner_output/logs/
+3. File permissions: Check access to BAM files and reference data
+4. Memory issues: Adjust batch_size in config.yaml
 
 
 ## Support
