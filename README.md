@@ -274,7 +274,7 @@ HiScanner is currently under active development. For support or questions, pleas
 
 If you use HiScanner in your research, please cite:
 
-Zhao, Y., Luquette, L. J., Veit, A. D., Wang, X., Xi, R., Viswanadham, V. V., ... & Park, P. J. (2024). High-resolution detection of copy number alterations in single cells with HiScanner. bioRxiv, 2024-04.
+Zhao, Y., Luquette, L. J., Veit, A. D., Wang, X., Xi, R., Viswanadham, V. V., ... & Park, P. J. (2025). High-resolution detection of copy number alterations in single cells with HiScanner. Nature Communications, 16(1), 5477.
 
 ## License
 HiScanner is freely available for non-commercial use.
