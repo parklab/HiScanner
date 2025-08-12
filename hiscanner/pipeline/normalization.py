@@ -58,7 +58,7 @@ def validate_normalization_inputs(config: Dict[str, Any]) -> None:
     # Check if mappability files exist
     missing_maps = []
     for chrom in chroms:
-        map_file = Path(f"{config['mappability_folder_stem']}chr{chrom}.txt")
+        map_file = Path(f"{config['mappability_folder_stem']}{'chr' if not chrom.startswith('chr') else ''}{chrom}.txt")
         if not map_file.exists():
             missing_maps.append(chrom)
     

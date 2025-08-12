@@ -60,7 +60,7 @@ rule create_config_files:
             cfg_data.append([
                 chrom,
                 f"{config['fasta_folder']}/{chrom}.fasta",
-                f"{config['mappability_folder_stem']}chr{chrom}.txt",
+                f"{config['mappability_folder_stem']}{'chr' if not chrom.startswith('chr') else ''}{chrom}.txt",
                 str(outdir / f"readpos/{wildcards.sample}/{chrom}.readpos.seq"),
                 str(outdir / f"bins/{wildcards.sample}/{chrom}.bin")
             ])
