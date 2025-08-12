@@ -10,6 +10,30 @@ import pickle
 import scipy
 import os
 
+def get_autosomal_chroms(config):
+    """
+    Get autosomal chromosomes only (exclude sex chromosomes).
+    
+    This is used for ADO model training where we need diploid chromosomes only.
+    Sex chromosomes are excluded because they can be haploid in males, which
+    would interfere with allelic dropout detection.
+    
+    Parameters
+    ----------
+    config : Dict[str, Any]
+        Configuration dictionary containing chrom_list
+        
+    Returns
+    -------
+    List[str]
+        List of autosomal chromosome names
+    """
+    all_chroms = config.get('chrom_list', [str(i) for i in range(1, 23)])
+    # Exclude common sex chromosome representations
+    sex_chroms = {'X', 'Y', 'chrX', 'chrY', '23', '24'}
+    return [c for c in all_chroms if c not in sex_chroms]
+
+
 def get_vaf_by_chrom(chrom, vaf, depth_filter=5, aggregate_every_k_snp=False, k=1):
     """
     Get VAF data for a specific chromosome
@@ -199,7 +223,7 @@ def process_cell_results(cell, vaf, cell_dir, config):
         plot_path = cell_dir / 'ado_length_distribution_per_chrom.png'
         if not plot_path.exists() or config.get('rerun', False):
             fig, ax = plt.subplots(dpi=500, figsize=(4, 3))
-            for chrom in range(1, 23):
+            for chrom in get_autosomal_chroms(config):
                 sns.kdeplot(data=anno_df_combined[anno_df_combined.chrom == chrom],
                         x='log10_len', ax=ax, color='black', lw=.5)
             plt.axvline(np.log10(bin_size_min_round_kb*1000), 
@@ -301,7 +325,7 @@ def plot_baf_distribution(vaf, cell_dir, config):
         k = config.get('k', 1)
         logger.info(f'Aggregating every {k} SNPs')
         vaf_agg = []
-        for chrom_train in range(1, 23):
+        for chrom_train in get_autosomal_chroms(config):
             selected = get_vaf_by_chrom(
                 str(chrom_train), 
                 vaf, 
@@ -323,7 +347,7 @@ def process_cell_data(vaf, config):
     data = []
     vaf['CHROM'] = vaf['CHROM'].astype(str)
     
-    for chrom_train in range(1, 23):
+    for chrom_train in get_autosomal_chroms(config):
         selected = get_vaf_by_chrom(
             str(chrom_train), 
             vaf, 
