@@ -146,7 +146,7 @@ def draw_track(cell: str, final_call_dir: Path, alpha: float = 0.5, rdr_only: bo
     # Read and prepare data
     cell_data = pd.read_csv(cell_data_path, sep='\t')
     cell_data = cell_data[~cell_data['CHROM'].isin(['X', 'Y'])]
-    cell_data['CHROM'] = cell_data['CHROM'].astype(int)
+    cell_data['CHROM'] = cell_data['CHROM'].str.replace('chr', '').astype(int)
     
     # Sort by chromosome and position
     cell_data = cell_data.sort_values(['CHROM', 'START'])
