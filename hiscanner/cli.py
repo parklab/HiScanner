@@ -31,10 +31,9 @@ def find_config_file() -> Optional[Path]:
 
 def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
     if value is None:
-        # If no config provided via --config, look in standard locations
-        config_path = find_config_file()
-        if config_path:
-            return config_path
+        # No --config given: commands fall back to ./config.yaml themselves
+        # (ensure_config_loaded), so a config passed to a subcommand is not
+        # overridden by a broken ./config.yaml
         return None
     try:
         path = Path(value)
@@ -64,15 +63,20 @@ def ensure_config_loaded() -> None:
               type=click.Path(exists=True), 
               callback=validate_config_file,
               help='Path to configuration file')
-@click.option('--debug', 
-              is_flag=True, 
+@click.option('--debug',
+              is_flag=True,
               help='Enable debug output')
-def cli(config: Optional[Path], debug: bool):
+@click.pass_context
+def cli(ctx: click.Context, config: Optional[Path], debug: bool):
     """HiScanner: Single-cell Copy Number Variation Analysis Pipeline"""
     # Setup logging first thing
     log_level = 'DEBUG' if debug else 'INFO'
     setup_logging(log_level=log_level)
-    
+
+    # These commands don't use a pipeline configuration
+    if ctx.invoked_subcommand in ('init', 'make-metadata'):
+        return
+
     if config:
         try:
             # Use the global config instance
@@ -155,8 +159,16 @@ def validate(config_path: Optional[str]):
         config.create_output_dirs()
         logger.info("✓ Output directories can be created")
         
+        multi_cell = config.config.get('input_mode', 'per_cell_bam') == 'multi_cell_bam'
+        if multi_cell:
+            logger.info("✓ Multi-cell BAM, index and barcode metadata validated successfully")
+
         # Only validate SCAN2 outputs if not in RDR-only mode
-        if not config.config.get('rdr_only', False):
+        if multi_cell and not config.config.get('rdr_only', False):
+            from .pipeline.snp_calling import get_phased_vcf
+            get_phased_vcf(config.config)
+            logger.info("✓ Phased hets VCF validated successfully")
+        elif not config.config.get('rdr_only', False):
             from .pipeline.snp_calling import validate_scan2_output
             scan2_dir = Path(config.config['scan2_output'])
             validate_scan2_output(scan2_dir)
@@ -243,6 +255,63 @@ def init(output: Optional[str]):
         
     except Exception as e:
         logger.error(f"Error initializing project: {e}")
+        sys.exit(1)
+
+@cli.command('make-metadata')
+@click.option('--barcodes',
+              type=click.Path(exists=True),
+              required=True,
+              help='Barcode list: one barcode per line (e.g. Cell Ranger barcodes.tsv.gz) '
+                   'or a CSV/TSV with a "barcode" column (e.g. per_cell_summary_metrics.csv)')
+@click.option('--output', '-o',
+              type=click.Path(),
+              default='metadata.txt',
+              show_default=True,
+              help='Metadata file to write')
+@click.option('--bam',
+              type=click.Path(exists=True),
+              help='Multi-cell BAM, required with --min-reads')
+@click.option('--min-reads',
+              type=int,
+              default=0,
+              show_default=True,
+              help='Keep only barcodes with at least this many reads (MAPQ>=30, no dup/secondary)')
+@click.option('--cell-tag',
+              default='CB',
+              show_default=True,
+              help='BAM tag holding the cell barcode')
+def make_metadata(barcodes: str, output: str, bam: Optional[str], min_reads: int, cell_tag: str):
+    """Create a metadata file for a multi-cell (e.g. 10x) BAM from a barcode list."""
+    try:
+        from .utils.multicell_bam import read_barcode_list, count_reads_by_tag
+
+        barcode_list = read_barcode_list(barcodes)
+        logger.info(f"Read {len(barcode_list)} barcodes from {barcodes}")
+
+        if min_reads > 0:
+            if not bam:
+                raise click.UsageError("--min-reads requires --bam")
+            logger.info(f"Counting reads per {cell_tag} in {bam}")
+            counts = count_reads_by_tag(bam, cell_tag)
+            barcode_list = [b for b in barcode_list if counts.get(b, 0) >= min_reads]
+            logger.info(f"{len(barcode_list)} barcodes have at least {min_reads} reads")
+
+        if not barcode_list:
+            logger.error("No barcodes left to write")
+            sys.exit(1)
+
+        import pandas as pd
+        pd.DataFrame({
+            'bamID': barcode_list,
+            'barcode': barcode_list,
+            'singlecell': 'Y'
+        }).to_csv(output, sep='\t', index=False)
+        logger.info(f"✓ Wrote {len(barcode_list)} cells to {output}")
+
+    except click.UsageError:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating metadata: {e}")
         sys.exit(1)
 
 def main():

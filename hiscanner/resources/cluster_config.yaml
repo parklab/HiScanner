@@ -16,6 +16,13 @@ get_read_pos:
   ntasks: 1
   partition: "park,short"
 
+get_read_pos_multicell:
+  # One job per chromosome over the shared multi-cell BAM
+  time: "12:00:00"
+  mem: "8G"
+  ntasks: 1
+  partition: "park,short"
+
 run_bicseq_norm:
   # More computationally intensive
   time: "12:00:00"

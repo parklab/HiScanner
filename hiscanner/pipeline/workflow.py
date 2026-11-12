@@ -104,9 +104,13 @@ class SnakemakeWorkflow:
                 'mappability_folder_stem': self.config['mappability_folder_stem'],
                 'bicseq_norm': bicseq_norm,
                 'binsize': self.config.get('binsize', 500000),
-                'chrom_list': self.config.get('chrom_list', 
-                    [str(i) for i in range(1, 23)] + ['X', 'Y'])
+                'chrom_list': self.config.get('chrom_list',
+                    [str(i) for i in range(1, 23)] + ['X', 'Y']),
+                'input_mode': self.config.get('input_mode', 'per_cell_bam'),
+                'cell_tag': self.config.get('cell_tag', 'CB')
             }
+            if snakemake_config['input_mode'] == 'multi_cell_bam':
+                snakemake_config['multi_cell_bam'] = str(Path(self.config['multi_cell_bam']).resolve())
             
             # Write configuration to file
             config_path = self.workflow_dir / 'config.yaml'

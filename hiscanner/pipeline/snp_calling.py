@@ -201,8 +201,15 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
         If required files are missing or invalid
     """
     logger.info("Preparing SNP calling results")
-    
+
     try:
+        if config.get('input_mode', 'per_cell_bam') == 'multi_cell_bam':
+            # Allele counts come from the multi-cell BAM; only phased hets are needed
+            phased_vcf = get_phased_vcf(config)
+            index_vcf(phased_vcf)
+            logger.info("Phased hets VCF prepared successfully (multi_cell_bam mode)")
+            return {'phased_vcf': phased_vcf}
+
         if 'scan2_output' not in config:
             raise SNPCallingError("scan2_output not specified in configuration")
             
@@ -218,6 +225,23 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
         
     except Exception as e:
         raise SNPCallingError(f"Error in SNP calling preparation: {str(e)}")
+
+def get_phased_vcf(config: Dict[str, Any]) -> Path:
+    """
+    Locate the phased hets VCF: `phased_hets_vcf` if set, otherwise
+    <scan2_output>/shapeit/phased_hets.vcf.gz.
+    """
+    if config.get('phased_hets_vcf'):
+        phased_vcf = Path(config['phased_hets_vcf'])
+    elif config.get('scan2_output'):
+        phased_vcf = Path(config['scan2_output']) / 'shapeit/phased_hets.vcf.gz'
+    else:
+        raise SNPCallingError(
+            "No phased hets VCF: set phased_hets_vcf or scan2_output in the configuration"
+        )
+    if not check_file_readability(phased_vcf):
+        raise SNPCallingError(f"Phased hets VCF not found or not readable: {phased_vcf}")
+    return phased_vcf
 
 def prepare_scan2_results(config: Dict[str, Any]) -> Dict[str, Path]:
     """

@@ -80,20 +80,44 @@ rule create_config_files:
             columns=['chromName', 'binFileNorm']
         ).to_csv(output.segcfg, index=None, sep='\t')
 
-# Extract read positions from BAM files
-rule get_read_pos:
-    input:
-        bam=lambda wildcards: samples.set_index("bamID").loc[wildcards.sample, "bam"]
-    output:
-        readpos=str(outdir / "readpos/{sample}/{chrom}.readpos.seq")
-    log:
-        str(outdir / "logs/get_read_pos_{sample}_{chrom}.log")
-    shell:
-        """
-        mkdir -p $(dirname {output.readpos})
-        samtools view -q 30 -F 1284 {input.bam} {wildcards.chrom} | \
-            perl -ane 'print $F[3], "\\n";' > {output.readpos} 2> {log}
-        """
+if config.get("input_mode", "per_cell_bam") == "multi_cell_bam":
+    # One shared BAM, cells identified by a tag (e.g. 10x CB).
+    # One job per chromosome streams the BAM once and writes read positions for all cells.
+    rule get_read_pos_multicell:
+        input:
+            bam=config["multi_cell_bam"],
+            metadata=config["metadata_path"]
+        output:
+            readpos=expand(str(outdir / "readpos/{sample}/{{chrom}}.readpos.seq"),
+                           sample=sample_ids)
+        log:
+            str(outdir / "logs/get_read_pos_multicell_{chrom}.log")
+        run:
+            from hiscanner.logger import setup_logging
+            from hiscanner.utils.multicell_bam import load_barcode_map, extract_readpos_by_cell
+            setup_logging(log_file=log[0])
+            extract_readpos_by_cell(
+                input.bam,
+                wildcards.chrom,
+                load_barcode_map(input.metadata),
+                outdir,
+                cell_tag=config.get("cell_tag", "CB")
+            )
+else:
+    # Extract read positions from BAM files
+    rule get_read_pos:
+        input:
+            bam=lambda wildcards: samples.set_index("bamID").loc[wildcards.sample, "bam"]
+        output:
+            readpos=str(outdir / "readpos/{sample}/{chrom}.readpos.seq")
+        log:
+            str(outdir / "logs/get_read_pos_{sample}_{chrom}.log")
+        shell:
+            """
+            mkdir -p $(dirname {output.readpos})
+            samtools view -q 30 -F 1284 {input.bam} {wildcards.chrom} | \
+                perl -ane 'print $F[3], "\\n";' > {output.readpos} 2> {log}
+            """
 
 # Run normalization using BICseq
 rule run_bicseq_norm:
@@ -119,13 +143,19 @@ rule run_bicseq_norm:
     log:
         str(outdir / "logs/bicseq_norm_{sample}.log")
     shell:
+        # NBICseq-norm.pl writes large 1bp read-count files to --tmp and only removes them on success.
+        # Use a per-cell work dir that is always removed, also when the cell fails.
         """
-        mkdir -p {params.tmp_dir}
+        workdir={params.tmp_dir}/work_{wildcards.sample}
+        rm -rf "$workdir"; mkdir -p "$workdir"
+        status=0
         {params.bicseq_norm} \
             -b={params.binsize} \
             --gc_bin \
             -p=0.0001 \
-            --tmp={params.tmp_dir} \
+            --tmp="$workdir" \
             {input.config} \
-            {output.temp} 2> {log}
+            {output.temp} 2> {log} || status=$?
+        rm -rf "$workdir"
+        exit $status
         """
