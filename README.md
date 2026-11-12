@@ -235,6 +235,43 @@ hiscanner run --step cnv      # CNV calling
 ```
 </details>
 
+### 10x / multi-cell BAM input
+
+HiScanner can also read one shared BAM that holds all cells, where each read has a cell barcode tag
+(`CB` for 10x Genomics). The BAM is streamed one chromosome at a time and is **never split into per-cell BAMs**.
+
+1. Index the BAM if needed: `samtools index possorted_bam.bam`
+2. Create the metadata from a barcode list (Cell Ranger `barcodes.tsv.gz` or `per_cell_summary_metrics.csv`):
+   ```bash
+   hiscanner make-metadata --barcodes barcodes.tsv.gz -o metadata.txt
+   # optionally keep only barcodes with enough reads:
+   hiscanner make-metadata --barcodes barcodes.tsv.gz --bam possorted_bam.bam --min-reads 100000 -o metadata.txt
+   ```
+   The metadata has the columns below. `bamID` names the output files, `barcode` is the tag value:
+   ```
+   bamID          barcode          singlecell
+   AAACCTGAGC-1   AAACCTGAGC-1     Y
+   ```
+3. In `config.yaml`:
+   ```yaml
+   input_mode: multi_cell_bam
+   multi_cell_bam: /path/to/possorted_bam.bam
+   cell_tag: CB
+   phased_hets_vcf: /path/to/phased_hets.vcf.gz   # not needed with rdr_only: true
+   ```
+4. Run the steps as usual (`hiscanner validate`, then `hiscanner run ...`).
+
+**Read depth:** read start positions are filtered as in per-cell mode (MAPQ ≥ 30; unmapped, secondary and
+duplicate reads removed), with one job per chromosome for all cells together.
+
+**BAF (standard pipeline):** REF/ALT counts per cell are taken directly from the BAM at the phased heterozygous
+SNVs (MAPQ ≥ 60, base quality ≥ 20; duplicate, secondary, supplementary and QC-fail reads removed; overlapping
+mates of a pair counted once), so SCAN2's
+per-cell `hc_raw.mmq60.vcf.gz` is not needed. The phased hets VCF must contain a `phasedgt` column. It can come
+from SCAN2 (for example run with the bulk BAM plus the whole 10x BAM as one "cell", stopped at
+`shapeit/phased_hets.vcf.gz`), or from any phasing of bulk germline SNPs. If `phased_hets_vcf` is not set,
+`<scan2_output>/shapeit/phased_hets.vcf.gz` is used. These counts are close to, but not identical to,
+SCAN2/GATK `AD` values.
 
 ## Output Structure
 

@@ -4,6 +4,13 @@ metadata_path: null     # Path to metadata file (e.g., "./metadata.txt")
 outdir: null           # Output directory for results (e.g., "./hiscanner_output")
 use_multisample_segmentation: false  # Set to true to use multisample segmentation
 
+# Input mode
+input_mode: per_cell_bam  # per_cell_bam: one BAM per cell (metadata columns: bamID, bam, singlecell)
+                          # multi_cell_bam: one BAM for all cells, e.g. 10x (metadata columns: bamID, barcode, singlecell)
+multi_cell_bam: null      # Path to the shared, indexed BAM (multi_cell_bam mode only)
+cell_tag: CB              # BAM tag holding the cell barcode (multi_cell_bam mode only)
+phased_hets_vcf: null     # Phased het SNPs VCF; defaults to <scan2_output>/shapeit/phased_hets.vcf.gz
+
 # Reference data and external tools - MUST BE SET
 fasta_folder: null          # Path to reference genome split by chromosome
 mappability_folder_stem: null  # Path to mappability files including the stem (e.g., "/path/to/hg19.CRC.100mer.")

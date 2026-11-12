@@ -95,9 +95,19 @@ class Config:
             'bicseq_seg': 'NBICseq-seg.pl path'
         }
 
-        # Only require SCAN2 output if not in RDR-only mode
+        input_mode = self.config.get('input_mode', 'per_cell_bam')
+        if input_mode not in ('per_cell_bam', 'multi_cell_bam'):
+            raise ConfigError(
+                f"input_mode must be 'per_cell_bam' or 'multi_cell_bam', got: {input_mode}"
+            )
+        multi_cell = input_mode == 'multi_cell_bam'
+        if multi_cell:
+            required_params['multi_cell_bam'] = 'Shared multi-cell BAM'
+
+        # Only require SCAN2 output if not in RDR-only mode. In multi_cell_bam mode
+        # only the phased hets VCF is needed, which can also be given directly.
         rdr_only = self.config.get('rdr_only', False)
-        if not rdr_only:
+        if not rdr_only and not (multi_cell and self.config.get('phased_hets_vcf')):
             required_params['scan2_output'] = 'SCAN2 results directory'
                 
         # Check for null or missing required parameters
@@ -121,8 +131,14 @@ class Config:
         }
         
         # Only check SCAN2 paths if not in RDR-only mode
-        if not rdr_only:
+        if not rdr_only and not multi_cell:
             paths_to_check['scan2_output'] = ['gatk/hc_raw.mmq60.vcf.gz', 'shapeit/phased_hets.vcf.gz']
+        elif not rdr_only and self.config.get('phased_hets_vcf'):
+            paths_to_check['phased_hets_vcf'] = []
+        elif not rdr_only:
+            paths_to_check['scan2_output'] = ['shapeit/phased_hets.vcf.gz']
+        if multi_cell:
+            paths_to_check['multi_cell_bam'] = []
         
         for param, subpaths in paths_to_check.items():
             path = Path(self.config[param])
@@ -140,6 +156,9 @@ class Config:
                             f"Required file not found: {full_path}\n"
                             f"Please ensure SCAN2 has been run successfully."
                         )
+
+        if multi_cell:
+            self._validate_multi_cell_input()
 
         # Validate executables
         for exe in ['bicseq_norm', 'bicseq_seg']:
@@ -168,6 +187,32 @@ class Config:
             value = self.config.get(param)
             if value is not None and not validator(value):
                 raise ConfigError(f"{param} must be a {desc}")
+
+    def _validate_multi_cell_input(self) -> None:
+        """
+        Validate multi_cell_bam inputs: BAM index and metadata barcode column.
+
+        Raises
+        ------
+        ConfigError
+            If the BAM is not indexed or the metadata is unusable
+        """
+        from .utils.multicell_bam import find_bam_index, load_barcode_map
+
+        bam = self.config['multi_cell_bam']
+        if find_bam_index(bam) is None:
+            raise ConfigError(
+                f"No index found for {bam}\n"
+                f"Please index it first: samtools index {bam}"
+            )
+        try:
+            barcode_map = load_barcode_map(self.config['metadata_path'])
+        except ValueError as e:
+            raise ConfigError(str(e))
+        if not barcode_map:
+            raise ConfigError(
+                f"No single cells (singlecell == 'Y') in {self.config['metadata_path']}"
+            )
 
     def get(self, key: str, default: Any = None) -> Any:
         """
