@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
 from ..logger import logger
 from ..config import ConfigError
+from ..utils.multicell_bam import is_multi_cell
 
 class SNPCallingError(Exception):
     """Custom exception for SNP calling errors"""
@@ -203,8 +204,8 @@ def run_snp_calling(config: Dict[str, Any]) -> Dict[str, Path]:
     logger.info("Preparing SNP calling results")
 
     try:
-        if config.get('input_mode', 'per_cell_bam') == 'multi_cell_bam':
-            # Allele counts come from the multi-cell BAM; only phased hets are needed
+        if is_multi_cell(config):
+            # allele counts come from the shared BAM, only the phased hets VCF is used
             phased_vcf = get_phased_vcf(config)
             index_vcf(phased_vcf)
             logger.info("Phased hets VCF prepared successfully (multi_cell_bam mode)")

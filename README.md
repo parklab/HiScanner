@@ -265,7 +265,8 @@ HiScanner can also read one shared BAM that holds all cells, where each read has
 duplicate reads removed), with one job per chromosome for all cells together.
 
 **BAF (standard pipeline):** REF/ALT counts per cell are taken directly from the BAM at the phased heterozygous
-SNVs (MAPQ ≥ 60, base quality ≥ 20; duplicate, secondary, supplementary and QC-fail reads removed), so SCAN2's
+SNVs (MAPQ ≥ 60, base quality ≥ 20; duplicate, secondary, supplementary and QC-fail reads removed; overlapping
+mates of a pair counted once), so SCAN2's
 per-cell `hc_raw.mmq60.vcf.gz` is not needed. The phased hets VCF must contain a `phasedgt` column. It can come
 from SCAN2 (for example run with the bulk BAM plus the whole 10x BAM as one "cell", stopped at
 `shapeit/phased_hets.vcf.gz`), or from any phasing of bulk germline SNPs. If `phased_hets_vcf` is not set,

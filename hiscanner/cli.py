@@ -31,9 +31,8 @@ def find_config_file() -> Optional[Path]:
 
 def validate_config_file(ctx, param, value: Optional[str]) -> Optional[Path]:
     if value is None:
-        # No --config given: commands fall back to ./config.yaml themselves
-        # (ensure_config_loaded), so a config passed to a subcommand is not
-        # overridden by a broken ./config.yaml
+        # ensure_config_loaded() falls back to ./config.yaml later, so a config
+        # given to a subcommand isn't shadowed by a stale one in the cwd
         return None
     try:
         path = Path(value)
@@ -159,7 +158,8 @@ def validate(config_path: Optional[str]):
         config.create_output_dirs()
         logger.info("✓ Output directories can be created")
         
-        multi_cell = config.config.get('input_mode', 'per_cell_bam') == 'multi_cell_bam'
+        from .utils.multicell_bam import is_multi_cell
+        multi_cell = is_multi_cell(config.config)
         if multi_cell:
             logger.info("✓ Multi-cell BAM, index and barcode metadata validated successfully")
 
